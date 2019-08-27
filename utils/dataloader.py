@@ -1,9 +1,15 @@
 import pickle
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader as TorchDataLoader
 
 ATOMS = ['H', 'C', 'O', 'N', 'F', 'M']
+
+
+class DataLoader(TorchDataLoader):
+
+    def __init__(self, *args, **kwargs):
+        super(DataLoader, self).__init__(*args, **kwargs, collate_fn=molecule_collate_fn)
 
 
 def pad(sentences, pad_token=0):
@@ -47,8 +53,9 @@ class MoleculeBatch():
         self.targets_num = []
         self.adj = []
         self.properties = []
-        self.target_masks = []
+        self.target_mask = []
         self.lengths = []
+        self.batch_size = len(molecule_samples)
 
         for sample in molecule_samples:
             self.atoms += [sample.atoms]
@@ -57,16 +64,23 @@ class MoleculeBatch():
             self.targets_num += [sample.targets_num]
             self.adj += [sample.adj]
             self.properties += [sample.properties]
-            self.target_masks += [sample.target_mask]
+            self.target_mask += [sample.target_mask]
             self.lengths += [sample.length]
 
         self.atoms_num = torch.tensor(pad(self.atoms_num))
-        self.targets = torch.tensor(pad(self.targets_num))
+        self.targets_num = torch.tensor(pad(self.targets_num))
         self.adj = torch.tensor(pad(self.adj))
-        self.target_masks = torch.tensor(pad(self.target_masks))
+        self.target_mask = torch.tensor(pad(self.target_mask)).byte()
         self.lengths = torch.tensor(self.lengths)
 
         # TODO: include properties in some nice format
+
+    def cuda(self):
+        self.atoms_num = self.atoms_num.cuda()
+        self.targets_num = self.targets_num.cuda()
+        self.adj = self.adj.cuda()
+        self.target_mask = self.target_mask.cuda()
+        self.lengths = self.lengths.cuda()
 
 
 class QM9Dataset(Dataset):

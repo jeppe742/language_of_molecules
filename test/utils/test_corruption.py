@@ -1,4 +1,4 @@
-from language_of_molecules.utils.dataloader import MoleculeSample, CorruptionTransform
+from utils.dataloader import MoleculeSample, CorruptionTransform
 import numpy as np
 
 
