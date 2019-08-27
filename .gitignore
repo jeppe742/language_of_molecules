@@ -107,3 +107,4 @@ data/
 .vscode/
 wandb/
 saved_models/
+joblogs/

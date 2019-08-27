@@ -70,7 +70,7 @@ class MoleculeBatch():
         self.atoms_num = torch.tensor(pad(self.atoms_num))
         self.targets_num = torch.tensor(pad(self.targets_num))
         self.adj = torch.tensor(pad(self.adj))
-        self.target_mask = torch.tensor(pad(self.target_mask)).byte()
+        self.target_mask = torch.tensor(pad(self.target_mask), dtype=torch.bool)
         self.lengths = torch.tensor(self.lengths)
 
         # TODO: include properties in some nice format

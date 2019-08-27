@@ -44,7 +44,7 @@ class GraphAttentionModel(BaseNetwork):
         target_mask = batch.target_mask
 
         #create mask
-        mask = length_to_mask(lengths, dtype=torch.uint8) #[batch_size, molecule_size]
+        mask = length_to_mask(lengths, dtype=torch.bool) #[batch_size, molecule_size]
  
         # get embeddings
         x = self.embeddings(atoms) #[batch_size, molecule_size, embedding_dim]
