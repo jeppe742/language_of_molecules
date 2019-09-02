@@ -3,7 +3,7 @@
 ### ?- specify queue --
 #BSUB -q gpuv100
 ### -- set the job Name --
-#BSUB -J transformer
+#BSUB -J nr2
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 1
 ### -- Select the resources: 1 gpu in exclusive process mode --
@@ -29,6 +29,5 @@
 # Load the cuda module
 module load cuda/10.0
 module load python3
-#module load tensorflow/1.12-gpu-python-3.6.2
 
-python3 train.py --num_epochs=100
+python3 train.py --num_epochs=100 --epsilon_greedy=0.0

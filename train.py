@@ -3,6 +3,7 @@ import torch
 import argparse
 from utils.dataloader import QM9Dataset, DataLoader
 from layers.transformer import TransformerModel
+from layers.bagofwords import BagOfWordsModel, BagOfWordsType
 import wandb
 
 parser = argparse.ArgumentParser()
@@ -21,6 +22,7 @@ parser.add_argument('--num_same', default=0, type=int)
 parser.add_argument('--name_postfix', default='', type=str)
 parser.add_argument('--use_cuda', default=True, type=bool)
 parser.add_argument('--debug', default=False, type=bool)
+parser.add_argument('--model',choices=['BoN','BoA','Transformer'], default='Transformer')
 args = parser.parse_args()
 
 
@@ -55,36 +57,73 @@ if args.num_masks == 0:
         val_dls.append(val_dl)
 
 
-transformerModel = TransformerModel(num_layers=args.num_layers,
-                                    num_heads=args.num_heads,
-                                    embedding_dim=args.embedding_dim,
-                                    dropout=args.dropout,
-                                    edge_encoding=args.edge_encoding,
-                                    use_cuda=args.use_cuda,
-                                    name=(
-                                        "Transformer"
-                                        f"_num_masks={args.num_masks}"
-                                        f"_num_fake={args.num_fake}"
-                                        f"_num_same={args.num_same}"
-                                        f"_num_layers={args.num_layers}"
-                                        f"_num_heads={args.num_heads}"
-                                        f"_embedding_dim={args.embedding_dim}"
-                                        f"_dropout={args.dropout}"
-                                        f"_lr={args.lr}"
-                                        f"_edge_encoding={args.edge_encoding}"
-                                        f"_epsilon_greedy={args.epsilon_greedy}"
-                                        f"{args.name_postfix}"
+if args.model =='Transformer':
+        
+    model = TransformerModel(num_layers=args.num_layers,
+                                        num_heads=args.num_heads,
+                                        embedding_dim=args.embedding_dim,
+                                        dropout=args.dropout,
+                                        edge_encoding=args.edge_encoding,
+                                        use_cuda=args.use_cuda,
+                                        name=(
+                                            "Transformer"
+                                            f"_num_masks={args.num_masks}"
+                                            f"_num_fake={args.num_fake}"
+                                            f"_num_same={args.num_same}"
+                                            f"_num_layers={args.num_layers}"
+                                            f"_num_heads={args.num_heads}"
+                                            f"_embedding_dim={args.embedding_dim}"
+                                            f"_dropout={args.dropout}"
+                                            f"_lr={args.lr}"
+                                            f"_edge_encoding={args.edge_encoding}"
+                                            f"_epsilon_greedy={args.epsilon_greedy}"
+                                            f"{args.name_postfix}"
+                                        )
                                     )
-                                    )
-
+elif args.model == 'BoA':
+    model = BagOfWordsModel(num_layers=args.num_layers,
+                                        embedding_dim=args.embedding_dim,
+                                        BagOfWordsType=BagOfWordsType.ATOMS,
+                                        use_cuda=args.use_cuda,
+                                        name=(
+                                            "BagOfWords"
+                                            f"_num_masks={args.num_masks}"
+                                            f"_num_fake={args.num_fake}"
+                                            f"_num_same={args.num_same}"
+                                            f"_num_layers={args.num_layers}"
+                                            f"_embedding_dim={args.embedding_dim}"
+                                            f"_lr={args.lr}"
+                                            f"_epsilon_greedy={args.epsilon_greedy}"
+                                            f"_bow_type={BagOfWordsType.ATOMS}"
+                                            f"{args.name_postfix}"
+                                        )
+                        )
+elif args.model == 'BoN':
+    model = BagOfWordsModel(num_layers=args.num_layers,
+                                        embedding_dim=args.embedding_dim,
+                                        BagOfWordsType=BagOfWordsType.NEIGHBOURS,
+                                        use_cuda=args.use_cuda,
+                                        name=(
+                                            "BagOfWords"
+                                            f"_num_masks={args.num_masks}"
+                                            f"_num_fake={args.num_fake}"
+                                            f"_num_same={args.num_same}"
+                                            f"_num_layers={args.num_layers}"
+                                            f"_embedding_dim={args.embedding_dim}"
+                                            f"_lr={args.lr}"
+                                            f"_epsilon_greedy={args.epsilon_greedy}"
+                                            f"_bow_type={BagOfWordsType.NEIGHBOURS}"
+                                            f"{args.name_postfix}"
+                                        )
+                        )
 
 def optimizer_fun(param): return Adam(param, lr=args.lr)
 
 
 if not args.debug:
-    wandb.init(project="language-of-molecules", name=transformerModel.name)
+    wandb.init(project="language-of-molecules", name=model.name)
     wandb.config.update(args)
-    wandb.watch(transformerModel)
+    wandb.watch(model)
 
-transformerModel.train_network(train_dl, val_dls, num_epochs=args.num_epochs, eval_after_epochs=1,
+model.train_network(train_dl, val_dls, num_epochs=args.num_epochs, eval_after_epochs=1,
                                log_after_epochs=1, optimizer_fun=optimizer_fun, save_model=True)
