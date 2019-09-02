@@ -102,7 +102,7 @@ for k, filename in enumerate(tqdm(glob.glob("data/dsgdb9nsd.xyz/*.xyz"))):
         # convert list of atoms to numpy array for easier computations later
         molecule_list = np.asarray(molecule_list)
 
-        molecules_Adjacency_list.append([molecule_list, Adj, constants])
+        molecules_Adjacency_list.append([molecule_list, Adj, constants, smiles])
 
 print("Splitting data..")
 molecules_Adjacency_train, molecules_Adjacency_test = train_test_split(molecules_Adjacency_list, test_size=0.15, random_state=42)
@@ -114,20 +114,20 @@ pickle.dump(molecules_Adjacency_validation, open('data/adjacency_matrix_validati
 pickle.dump(molecules_Adjacency_test, open('data/adjacency_matrix_test.pkl', 'wb'))
 
 
-print("persisting validation sets...")
-# Persist the validation and training
-for i in range(1, 6):
-    val_set_mask = QM9Dataset(data='data/adjacency_matrix_validation.pkl', num_masks=i)
-    val_set_mask.save_static_dataset(f'data/val_set_mask{i}.pkl')
+# print("persisting validation sets...")
+# # Persist the validation and training
+# for i in range(1, 6):
+#     val_set_mask = QM9Dataset(data='data/adjacency_matrix_validation.pkl', num_masks=i)
+#     val_set_mask.save_static_dataset(f'data/val_set_mask{i}.pkl')
 
-    val_set_fake = QM9Dataset(data='data/adjacency_matrix_validation.pkl', num_masks=0, num_fake=i)
-    val_set_fake.save_static_dataset(f'data/val_set_fake{i}.pkl')
+#     val_set_fake = QM9Dataset(data='data/adjacency_matrix_validation.pkl', num_masks=0, num_fake=i)
+#     val_set_fake.save_static_dataset(f'data/val_set_fake{i}.pkl')
 
 
-print("persisting test sets...")
-for i in range(1, 6):
-    test_set_mask = QM9Dataset(data='data/adjacency_matrix_test.pkl', num_masks=i)
-    test_set_mask.save_static_dataset(f'data/test_set_mask{i}.pkl')
+# print("persisting test sets...")
+# for i in range(1, 6):
+#     test_set_mask = QM9Dataset(data='data/adjacency_matrix_test.pkl', num_masks=i)
+#     test_set_mask.save_static_dataset(f'data/test_set_mask{i}.pkl')
 
-    test_set_fake = QM9Dataset(data='data/adjacency_matrix_test.pkl', num_masks=0, num_fake=i)
-    test_set_fake.save_static_dataset(f'data/test_set_fake{i}.pkl')
+#     test_set_fake = QM9Dataset(data='data/adjacency_matrix_test.pkl', num_masks=0, num_fake=i)
+#     test_set_fake.save_static_dataset(f'data/test_set_fake{i}.pkl')

@@ -144,13 +144,14 @@ class MoleculeSample():
     atom2int = {atom: (i+1) for i, atom in enumerate(ATOMS)}
     int2atom = {(i+1): atom for i, atom in enumerate(ATOMS)}
 
-    def __init__(self, atoms, adj, properties):
+    def __init__(self, atoms, adj, properties, smiles):
 
         # Set input properties
         self.atoms = atoms
 
         self.adj = adj
         self.properties = properties
+        self.smiles = smiles
 
         # We need the lenght of the atom for later
         self.length = len(atoms)
