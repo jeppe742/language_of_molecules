@@ -103,6 +103,7 @@ class BaseNetwork(Module):
                     output = self(train_batch)
 
                     targets = train_batch.targets_num
+                    target_mask = train_batch.target_mask
 
                     targets = targets[targets != 0]
                     # If padding is 0, we are essentially offsetting all our predictions
@@ -114,12 +115,12 @@ class BaseNetwork(Module):
                     # Calculate the loss, and backpropagate
                     loss = 0
 
-                    loss = criterion(output['out'], targets)
+                    loss = criterion(output['out'][target_mask], targets)
                     loss.backward()
 
                     # Optimize the network
                     self.optimizer.step()
-                    prediction = self.get_numpy(output['prediction'])
+                    prediction = self.get_numpy(output['prediction'][target_mask])
                     targets = self.get_numpy(targets)
                     loss = self.get_numpy(loss)
 
@@ -165,14 +166,15 @@ class BaseNetwork(Module):
                                 output = self(val_batch)
 
                                 targets = val_batch.targets_num
+                                target_mask = val_batch.target_mask
 
                                 targets = targets[targets != 0]
 
                                 targets -= 1
 
-                                loss = criterion(output['out'], targets)
+                                loss = criterion(output['out'][target_mask], targets)
 
-                                prediction = self.get_numpy(output['prediction'])
+                                prediction = self.get_numpy(output['prediction'][target_mask])
                                 targets = self.get_numpy(targets)
                                 loss = self.get_numpy(loss)
 
@@ -207,6 +209,8 @@ class BaseNetwork(Module):
                 # Update learning rate scheduler if exists
                 if self.scheduler is not None:
                     self.scheduler.step()
+                    for param_group in self.optimizer.param_groups:
+                        wandb.log({'lr':param_group['lr']}, step=epoch)
 
         # Instead of crashing the training, when you stop a kernel, this will just stop the training
         except KeyboardInterrupt:

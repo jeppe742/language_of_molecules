@@ -2,84 +2,18 @@ from utils.dataloader import QM9Dataset, DataLoader
 from layers.transformer import TransformerModel
 from layers.bagofwords import BagOfWordsModel
 from layers.Unigram import UnigramModel
+from torch.nn import CrossEntropyLoss
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import re
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, accuracy_score
 
-def get_pp_per_length(model, val_iter):
-    from torch.nn import CrossEntropyLoss, NLLLoss
-    criterion = CrossEntropyLoss(reduction='none')
+def tensor_to_list(tensor):
+    return tensor.detach().cpu().numpy().tolist()
 
-    perplexity = {}
-    global_perplexity = []
+def get_metric_per_length(model, val_iter, metric, out=False):
 
-    for batch in iter(val_iter):
-
-        batch.cuda()
-        output = model(batch)
-
-        lengths = batch.atoms[1]
-        targets = batch.targets_num
-
-        targets = targets[targets != 0]
-        targets -= 1
-
-        loss = criterion(output['out'], targets)
-
-        for pp, length in zip(loss, lengths):
-            pp = pp.item()
-            length = length.item()
-            if length in perplexity:
-                perplexity[length].append(pp)
-            else:
-                perplexity[length] = [pp]
-            global_perplexity.append(pp)
-
-    pp = ([np.mean(perplexity[l]) for l in sorted(perplexity)])
-    perplexity_per_length = np.exp(pp)
-    lengths = [l for l in sorted(perplexity)]
-    return perplexity_per_length, lengths, np.exp(np.mean(global_perplexity))
-
-def get_accuracy_per_length(model, val_iter):
-   
-
-    accuracy = {}
-    accuracy_global = []    
-
-    for batch in iter(val_iter):
-
-        batch.cuda()
-        output = model(batch)
-
-        lengths = batch.lengths
-        targets = batch.targets_num
-
-        targets = targets[targets != 0]
-        targets -= 1
-
-
-        predictions = output['prediction']
-
-
-        for target, prediction, length in zip(targets, predictions, lengths):
-            target = target.item()
-            prediction = prediction.item()
-            length = length.item()
-            if length in accuracy:
-                accuracy[length].append(target==prediction)
-            else:
-                accuracy[length] = [target==prediction]
-            accuracy_global.append(target==prediction)
-
-
-    accuracy_per_length = [sum(accuracy[l])/len(accuracy[l]) for l in sorted(accuracy)]
-    lengths = [l for l in sorted(accuracy)]
-    return accuracy_per_length, lengths, np.mean(accuracy_global)
-
-def get_f1_per_length(model, val_iter):
-   
     predictions_all = {}
     predictions_global = []
     targets_all = {}
@@ -92,38 +26,42 @@ def get_f1_per_length(model, val_iter):
 
         lengths = batch.lengths
         targets = batch.targets_num
+        target_masks = batch.target_mask
 
-        targets = targets[targets != 0]
         targets -= 1
 
-        predictions = output['prediction']
+        predictions = output['out'] if out else output['prediction']
+   
+        for target, prediction, target_mask, length in zip(targets, predictions,target_masks, lengths):
+            target = target[target!=-1]
+            prediction = prediction[target_mask]
 
-        for target, prediction, length in zip(targets, predictions, lengths):
-            target = target.item()
-            prediction = prediction.item()
             length = length.item()
             if length in targets_all:
-                targets_all[length].append(target)
-                predictions_all[length].append(prediction)
+                targets_all[length] +=  tensor_to_list(target)
+                predictions_all[length] += tensor_to_list(prediction)
             else:
-                targets_all[length] = [target]
-                predictions_all[length] = [prediction]
-            targets_global.append(target)
-            predictions_global.append(prediction)
+                targets_all[length] = tensor_to_list(target)
+                predictions_all[length] = tensor_to_list(prediction)
+            targets_global += tensor_to_list(target)
+            predictions_global += tensor_to_list(prediction)
 
     lengths = [l for l in sorted(targets_all)]
-    f1_micro_per_length = [f1_score(targets_all[length], predictions_all[length], average='micro') for length in lengths]
-    f1_macro_per_length = [f1_score(targets_all[length], predictions_all[length], average='macro') for length in lengths]
-    
-    return f1_micro_per_length,f1_macro_per_length, lengths, f1_score(targets_global, predictions_global, average='micro'),f1_score(targets_global, predictions_global, average='macro')
+    if out:
+        metric_per_length = [metric(torch.tensor(predictions_all[length]),torch.tensor(targets_all[length])) for length in lengths]
+    else:
+        metric_per_length = [metric(targets_all[length], predictions_all[length]) for length in lengths]
+
+    metric_global = metric(torch.tensor(predictions_global),torch.tensor(targets_global)) if out else metric(targets_global, predictions_global)
+    return metric_per_length, lengths, metric_global
 
 
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-batch_size=128
+batch_size=248
 val_iters_mask = []
 
-num_corrupted = [1,2,3,4,5]
+num_corrupted = [1,2,3,4,5,20]
 
 for masks in num_corrupted:
 
@@ -146,21 +84,22 @@ for fakes in num_corrupted:
 
 model_names = [
     "Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2.pt",
-    "Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_nr=2.pt",
     "BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=4_embedding_dim=64_lr=0.0005_epsilon_greedy=0.2_bow_type=1.pt",
-    "BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=4_embedding_dim=64_lr=0.0005_epsilon_greedy=0.2_bow_type=2.pt"
-
+    "BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=4_embedding_dim=64_lr=0.0005_epsilon_greedy=0.2_bow_type=2.pt",
+    "Unigram"
 ]
 
 
 labels = [
     "Transformer",
-    "Transformer",
     "BoA",
-    "BoN"
+    "BoN",
+    "Unigram"
 ]
 
 def plot_metric_per_length(saved_models, labels, metric, val_iter):
+
+    cross_entropy = CrossEntropyLoss()
 
     unique_labels = list(set(labels))
     model_metrics_per_length = {label:[] for label in unique_labels}
@@ -216,14 +155,19 @@ def plot_metric_per_length(saved_models, labels, metric, val_iter):
         model.cuda()
 
         if 'accuracy' in metric:
-            metric_per_length,lengths, metric_global  = get_accuracy_per_length(model,val_iter)
+            metric_per_length,lengths, metric_global  = get_metric_per_length(model,val_iter, accuracy_score)
+            #metric_per_length,lengths, metric_global  = get_accuracy_per_length(model,val_iter)
 
         elif 'f1 micro' in metric:
-            metric_per_length,_,lengths, metric_global,_ = get_f1_per_length(model,val_iter)
+            metric_per_length,lengths, metric_global  = get_metric_per_length(model,val_iter, lambda t,p: f1_score(t,p, average='micro'))
+            #
+            # metric_per_length,_,lengths, metric_global,_ = get_f1_per_length(model,val_iter)
         elif 'f1 macro' in metric:
-            _,metric_per_length,lengths,_,metric_global = get_f1_per_length(model,val_iter)
+            metric_per_length,lengths, metric_global  = get_metric_per_length(model,val_iter, lambda t,p: f1_score(t,p, average='macro'))
+            # _,metric_per_length,lengths,_,metric_global = get_f1_per_length(model,val_iter)
         elif 'perplexity' in metric:
-            metric_per_length, lengths, metric_global = get_pp_per_length(model, val_iter)
+            metric_per_length,lengths, metric_global  = get_metric_per_length(model,val_iter, lambda t,p: np.exp(cross_entropy(t,p)), out=True)
+            #metric_per_length, lengths, metric_global = get_pp_per_length(model, val_iter)
 
         model_metrics_per_length[label] += [metric_per_length]
         model_metrics[label] += [metric_global]
@@ -240,8 +184,8 @@ def plot_metric_per_length(saved_models, labels, metric, val_iter):
 global_results = {'acc':{},'perplexity':{}, 'f1_micro':{}, 'f1_macro':{}}
 plt.figure()
 print("### accuracy ###")
-for i, val_iter in enumerate(val_iters_mask):
-    print(f"--- mask = {i+1} ---")
+for i, (val_iter,mask) in enumerate(zip(val_iters_mask, num_corrupted)):
+    print(f"--- mask = {mask} ---")
     plt.subplot(len(val_iters_mask),1,i+1)
     model_metrics = plot_metric_per_length(model_names, labels, 'accuracy', val_iter)
     plt.xlabel('Molecule length')
@@ -256,8 +200,8 @@ for i, val_iter in enumerate(val_iters_mask):
 
 plt.figure()
 print("### perplexity ###")
-for i, val_iter in enumerate(val_iters_mask):
-    print(f"--- mask = {i+1} ---")
+for i, (val_iter, mask) in enumerate(zip(val_iters_mask, num_corrupted)):
+    print(f"--- mask = {mask} ---")
     plt.subplot(len(val_iters_mask),1,i+1)
     model_metrics = plot_metric_per_length(model_names, labels, 'perplexity', val_iter)
     plt.xlabel('Molecule length')
@@ -271,8 +215,8 @@ for i, val_iter in enumerate(val_iters_mask):
 
 plt.figure()
 print("### f1 micro ###")
-for i, val_iter in enumerate(val_iters_mask):
-    print(f"--- mask = {i+1} ---")
+for i, (val_iter,mask)  in enumerate(zip(val_iters_mask, num_corrupted)):
+    print(f"--- mask = {mask} ---")
     plt.subplot(len(val_iters_mask),1,i+1)
     model_metrics = plot_metric_per_length(model_names, labels, 'f1 micro', val_iter)
     plt.xlabel('Molecule length')
@@ -287,8 +231,8 @@ for i, val_iter in enumerate(val_iters_mask):
 
 plt.figure()
 print("### f1 macro ###")
-for i, val_iter in enumerate(val_iters_mask):
-    print(f"--- mask = {i+1} ---")
+for i, (val_iter, mask) in enumerate(zip(val_iters_mask, num_corrupted)):
+    print(f"--- mask = {mask} ---")
     plt.subplot(len(val_iters_mask),1,i+1)
     model_metrics = plot_metric_per_length(model_names, labels, 'f1 macro', val_iter)
     plt.xlabel('Molecule length')

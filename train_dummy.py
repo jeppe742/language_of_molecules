@@ -1,7 +1,9 @@
-from torch.optim import Adam
+from torch.optim import Adam, lr_scheduler
 import torch
 import argparse
 from utils.dataloader import QM9Dataset, DataLoader
+from utils.dummy_data import DummyDataset
+from utils.dummy_data import DummyDataset
 from layers.transformer import TransformerModel
 from layers.bagofwords import BagOfWordsModel, BagOfWordsType
 import wandb
@@ -24,16 +26,25 @@ parser.add_argument('--use_cuda', default=True, type=bool)
 parser.add_argument('--debug', default=False, type=bool)
 parser.add_argument('--scaffold', default=False, type=bool)
 parser.add_argument('--model',choices=['BoN','BoA','Transformer'], default='Transformer')
+parser.add_argument('--gamma',default=1, type=float)
+parser.add_argument('--num_classes',default=4, type=int)
+parser.add_argument('--num_samples',default=1000,type=int)
+parser.add_argument('--max_length',default=15,type=int)
+parser.add_argument('--ambiguity',default=False, type=bool)
+parser.add_argument('--num_bondtypes',default=1,type=int)
 args = parser.parse_args()
 
 
 train_file = 'data/adjacency_matrix_train_scaffold.pkl' if args.scaffold else 'data/adjacency_matrix_train.pkl'
 validation_file = 'data/adjacency_matrix_validation_scaffold.pkl' if args.scaffold else 'data/adjacency_matrix_validation.pkl'
 
-training = QM9Dataset(data=train_file,
-                      num_masks=args.num_masks,
+training = DummyDataset(num_masks=args.num_masks,
                       epsilon_greedy=args.epsilon_greedy,
-                      num_fake=args.num_fake)
+                      num_fake=args.num_fake,
+                      num_classes=args.num_classes,
+                      num_samples=args.num_samples,max_length=args.max_length,
+                      ambiguity=args.ambiguity,
+                      num_bondtypes=args.num_bondtypes)
 
 train_dl = DataLoader(
     training,
@@ -45,7 +56,12 @@ val_dls = []
 if args.num_fake == 0:
     for masks in range(1, 6):
 
-        val_set = QM9Dataset(data=validation_file, num_masks=masks)
+        val_set = DummyDataset(num_masks=masks,
+                               num_classes=args.num_classes,
+                               num_samples=args.num_samples,
+                               max_length=args.max_length,
+                               ambiguity=args.ambiguity,
+                               num_bondtypes=args.num_bondtypes)
         val_dl = DataLoader(
             val_set,
             batch_size=args.batch_size)
@@ -54,7 +70,12 @@ if args.num_fake == 0:
 if args.num_masks == 0:
     for fakes in range(1, 6):
 
-        val_set = QM9Dataset(data=validation_file, num_fake=fakes)
+        val_set = DummyDataset(num_fake=fakes,
+                               num_classes=args.num_classes,
+                               num_samples=args.num_samples,
+                               max_length=args.max_length,
+                               ambiguity=args.ambiguity,
+                               num_bondtypes=args.num_bondtypes)
         val_dl = DataLoader(
             val_set,
             batch_size=args.batch_size)
@@ -90,7 +111,7 @@ elif args.model == 'BoA':
                                         BagOfWordsType=BagOfWordsType.ATOMS,
                                         use_cuda=args.use_cuda,
                                         name=(
-                                            "BagOfWords"
+                                            "BagOfAtoms"
                                             f"_num_masks={args.num_masks}"
                                             f"_num_fake={args.num_fake}"
                                             f"_num_same={args.num_same}"
@@ -108,7 +129,7 @@ elif args.model == 'BoN':
                                         BagOfWordsType=BagOfWordsType.NEIGHBOURS,
                                         use_cuda=args.use_cuda,
                                         name=(
-                                            "BagOfWords"
+                                            "BagOfNeighbours"
                                             f"_num_masks={args.num_masks}"
                                             f"_num_fake={args.num_fake}"
                                             f"_num_same={args.num_same}"
@@ -125,9 +146,14 @@ def optimizer_fun(param): return Adam(param, lr=args.lr)
 
 
 if not args.debug:
-    wandb.init(project="language-of-molecules", name=model.name)
+    wandb.init(project="language_of_molecules_dummy", name=model.name)
     wandb.config.update(args)
     wandb.watch(model)
 
-model.train_network(train_dl, val_dls, num_epochs=args.num_epochs, eval_after_epochs=1,
-                               log_after_epochs=1, optimizer_fun=optimizer_fun, save_model=True)
+model.train_network(train_dl, val_dls, 
+                               num_epochs=args.num_epochs, 
+                               eval_after_epochs=1,
+                               log_after_epochs=1, 
+                               optimizer_fun=optimizer_fun, 
+                               save_model=True, 
+                               scheduler_fun=lambda optimizer:lr_scheduler.ExponentialLR(optimizer, args.gamma))

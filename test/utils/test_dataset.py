@@ -1,6 +1,6 @@
 from utils.dataloader import QM9Dataset, DataLoader
 import numpy as np
-
+from utils.dummy_data import DummyDataset
 
 def test_dataset():
     qm9 = QM9Dataset('data/adjacency_matrix_train.pkl')
@@ -14,3 +14,18 @@ def test_dataset():
 
     dl = DataLoader(qm9, batch_size=10)
     a = next(iter(dl))
+
+
+
+def test_dummy():
+    dummy = DummyDataset(num_classes=2, num_samples=1000, max_length=15, ambiguity=True)
+    sample = dummy[0]
+
+    
+    dummy = DummyDataset(num_classes=4, num_samples=1000, max_length=15, num_bondtypes=2)
+    sample = dummy[0]
+
+
+    dummy = DummyDataset(num_classes=3, num_samples=1000, max_length=15, ambiguity=True)
+    sample = dummy[0]
+    a=1

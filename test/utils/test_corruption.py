@@ -5,7 +5,7 @@ import numpy as np
 def test_corruption_override_mask():
     corruption = CorruptionTransform(num_masks=1)
 
-    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1},'')
 
     _ = corruption(molecule)
 
@@ -18,7 +18,7 @@ def test_corruption_override_mask():
 def test_corruption_override_fake():
     corruption = CorruptionTransform(num_fake=1)
 
-    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1},'')
 
     _ = corruption(molecule)
 
@@ -31,7 +31,7 @@ def test_corruption_override_fake():
 def test_corruption_override_both():
     corruption = CorruptionTransform(num_fake=2, num_masks=2)
 
-    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1},'')
 
     _ = corruption(molecule)
 
@@ -44,7 +44,7 @@ def test_corruption_override_both():
 def test_corruption_mask1():
     corruption = CorruptionTransform(num_masks=1)
 
-    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1},'')
 
     np.random.seed(0)
     new_sample = corruption(molecule)
@@ -58,7 +58,7 @@ def test_corruption_mask1():
 def test_corruption_mask2():
     corruption = CorruptionTransform(num_masks=2)
 
-    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'C', 'C', 'H', 'O', 'N', 'N', 'H']), np.eye(8), {'a': 1},'')
 
     np.random.seed(0)
     new_sample = corruption(molecule)
@@ -72,7 +72,7 @@ def test_corruption_mask2():
 def test_corruption_fake1():
     corruption = CorruptionTransform(num_fake=1)
 
-    molecule = MoleculeSample(np.array(['H', 'H', 'H', 'H', 'H']), np.eye(5), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'H', 'H', 'H', 'H']), np.eye(5), {'a': 1},'')
 
     np.random.seed(0)
     new_sample = corruption(molecule)
@@ -86,7 +86,7 @@ def test_corruption_fake1():
 def test_corruption_fake2():
     corruption = CorruptionTransform(num_fake=2)
 
-    molecule = MoleculeSample(np.array(['H', 'H', 'O', 'H', 'H']), np.eye(5), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'H', 'O', 'H', 'H']), np.eye(5), {'a': 1},'')
 
     np.random.seed(0)
     new_sample = corruption(molecule)
@@ -100,7 +100,7 @@ def test_corruption_fake2():
 def test_corruption_mask2_fake2():
     corruption = CorruptionTransform(num_fake=2, num_masks=2)
 
-    molecule = MoleculeSample(np.array(['H', 'N', 'N', 'H', 'H']), np.eye(5), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'N', 'N', 'H', 'H']), np.eye(5), {'a': 1},'')
 
     np.random.seed(0)
     new_sample = corruption(molecule)
@@ -114,7 +114,7 @@ def test_corruption_mask2_fake2():
 def test_corruption_epsilon():
     corruption = CorruptionTransform(num_masks=1, epsilon=1)
 
-    molecule = MoleculeSample(np.array(['H', 'H', 'N', 'H', 'H']), np.eye(5), {'a': 1})
+    molecule = MoleculeSample(np.array(['H', 'H', 'N', 'H', 'H']), np.eye(5), {'a': 1},'')
 
     np.random.seed(3)
     new_sample = corruption(molecule)

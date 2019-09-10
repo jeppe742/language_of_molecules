@@ -7,7 +7,7 @@ import torch
 class BagOfWordsType:
     ATOMS = 1
     NEIGHBOURS = 2
-    GRAPH = 3
+    EDGES = 3
 
 
 class BagOfWordsLayer(BaseNetwork):
@@ -52,7 +52,7 @@ class BagOfWordsModel(BaseNetwork):
 
         self.embedding_dim = embedding_dim
         self.embeddings = Embedding(num_embeddings, embedding_dim)
-        self.softmax = Softmax(dim=1)
+        self.softmax = Softmax(dim=-1)
 
         self.l_out = Linear(in_features=embedding_dim, out_features=num_classes)
 
@@ -78,9 +78,9 @@ class BagOfWordsModel(BaseNetwork):
         for bow_layer in self.bow_layers:
             x = bow_layer(x, mask, adj)
 
-        out['out'] = x = self.l_out(x[target_mask, :])
+        out['out'] = x = self.l_out(x)
 
-        out['prediction'] = torch.argmax(self.softmax(x), dim=1)
+        out['prediction'] = torch.argmax(self.softmax(x), dim=-1)
 
         return out
 

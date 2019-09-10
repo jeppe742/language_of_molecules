@@ -17,7 +17,7 @@ def test_transformer_forward_cpu():
     transformer = TransformerModel()
     out = transformer(sample)
 
-    assert torch.equal(out['prediction'], torch.tensor([0, 4, 0, 4, 0, 0, 0]))
+    assert torch.equal(out['prediction'][sample.target_mask], torch.tensor([0, 4, 0, 4, 0, 0, 0]))
 
     criterion = CrossEntropyLoss()
     targets = sample.targets_num
@@ -26,9 +26,9 @@ def test_transformer_forward_cpu():
     targets = targets[targets != 0]
     targets -= 1
     assert torch.equal(targets, torch.tensor([1, 0, 2, 1, 0, 0, 0]))
-    loss = criterion(out['out'], targets)
+    loss = criterion(out['out'][sample.target_mask], targets)
 
-    assert torch.equal(loss, cross_entropy(out['out'], targets, reduction='none').mean())
+    assert torch.equal(loss, cross_entropy(out['out'][sample.target_mask], targets, reduction='none').mean())
 
 
 def test_transformer_forward_cuda():
@@ -43,4 +43,4 @@ def test_transformer_forward_cuda():
     sample.cuda()
     out = transformer(sample)
 
-    assert torch.equal(out['prediction'], torch.tensor([0]).cuda())
+    assert torch.equal(out['prediction'][sample.target_mask], torch.tensor([0]).cuda())

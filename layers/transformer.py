@@ -25,7 +25,7 @@ class TransformerModel(BaseNetwork):
         else:
             self.edges_embedding = None
         self.embeddings = Embedding(num_embeddings=num_embeddings, embedding_dim=embedding_dim, padding_idx=0)
-        self.softmax = Softmax(dim=1)
+        self.softmax = Softmax(dim=-1)
 
         self.l_out = Linear(in_features=embedding_dim, out_features=num_classes)
 
@@ -39,6 +39,8 @@ class TransformerModel(BaseNetwork):
         atoms = batch.atoms_num
         lengths = batch.lengths
 
+        #atoms = torch.ones(atoms.shape, dtype=atoms.dtype).cuda()
+
         adj = batch.adj
         target_mask = batch.target_mask
 
@@ -49,12 +51,13 @@ class TransformerModel(BaseNetwork):
         x = self.embeddings(atoms)  # [batch_size, molecule_size, embedding_dim]
 
         for i, attention_layer in enumerate(self.attention_layers):
-            x, out[f'attention_weights_{i}'] = attention_layer(x, mask, adj, self.edges_embedding)
+            x, out[f'attention_weights_{i}'] = attention_layer(x, mask, adj, self.edges_embedding) #[batch_size, molecule_size, embedding_dim]
 
         #out['constant'] = self.l_out_constant(x[(1-mask)])
-        out['out'] = x = self.l_out(x[target_mask, :])
+        out['out'] = x = self.l_out(x) # [batch_size, molecule_size, num_classes]
 
-        out['prediction'] = torch.argmax(self.softmax(x), dim=1)
+        x.masked_fill_(mask.unsqueeze(2), -float('inf'))
+        out['prediction'] = torch.argmax(self.softmax(x), dim=-1)
 
         return out
 

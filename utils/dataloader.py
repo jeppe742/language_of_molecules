@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader as TorchDataLoader
+from utils.helpers import plot_molecule
 
 ATOMS = ['H', 'C', 'O', 'N', 'F', 'M']
 
@@ -55,6 +56,7 @@ class MoleculeBatch():
         self.properties = []
         self.target_mask = []
         self.lengths = []
+        self.smiles = []
         self.batch_size = len(molecule_samples)
 
         for sample in molecule_samples:
@@ -66,6 +68,7 @@ class MoleculeBatch():
             self.properties += [sample.properties]
             self.target_mask += [sample.target_mask]
             self.lengths += [sample.length]
+            self.smiles += [sample.smiles]
 
         self.atoms_num = torch.tensor(pad(self.atoms_num))
         self.targets_num = torch.tensor(pad(self.targets_num))
@@ -174,8 +177,10 @@ class MoleculeSample():
         Create a copy of the molecule.
         This should make sure that the mutable atoms list isn't overridden in the corruption transformation
         """
-        return MoleculeSample(self.atoms.copy(), self.adj.copy(), self.properties.copy())
+        return MoleculeSample(self.atoms.copy(), self.adj.copy(), self.properties.copy(), self.smiles)
 
+    def plot(self):
+        plot_molecule(self.smiles)
 
 class CorruptionTransform():
     """
