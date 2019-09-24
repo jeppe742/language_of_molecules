@@ -2,10 +2,7 @@ import pickle
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader as TorchDataLoader
-from utils.helpers import plot_molecule
-
-ATOMS = ['H', 'C', 'O', 'N', 'F', 'M']
-
+from utils.helpers import plot_molecule, ATOMS, atom2int, int2atom
 
 class DataLoader(TorchDataLoader):
 
@@ -92,6 +89,7 @@ class QM9Dataset(Dataset):
                  num_masks=1,
                  num_fake=0,
                  epsilon_greedy=0.0,
+                 bond_order=False,
                  static=False):
         """Create a dataset of graphs from the QM9 data.
 
@@ -106,6 +104,7 @@ class QM9Dataset(Dataset):
         self.num_fake = num_fake
         self.epsilon_greedy = epsilon_greedy
         self.static = static
+        self.bond_order = bond_order
 
         self.corruption = CorruptionTransform(num_masks=num_masks, num_fake=num_fake, epsilon=epsilon_greedy)
 
@@ -114,8 +113,11 @@ class QM9Dataset(Dataset):
             self.datafile = data
             self.data = []
             samples = pickle.load(open(data, 'rb'))
-            for sample in samples:
-                self.data += [MoleculeSample(*sample)]
+            for (atoms, adj, adj2, properties, smiles) in samples:
+                if bond_order:
+                    self.data += [MoleculeSample(atoms, adj2, properties, smiles)]
+                else:
+                    self.data += [MoleculeSample(atoms, adj, properties, smiles)]
 
     def __len__(self):
         return len(self.data)
@@ -144,9 +146,6 @@ class QM9Dataset(Dataset):
 
 class MoleculeSample():
 
-    atom2int = {atom: (i+1) for i, atom in enumerate(ATOMS)}
-    int2atom = {(i+1): atom for i, atom in enumerate(ATOMS)}
-
     def __init__(self, atoms, adj, properties, smiles):
 
         # Set input properties
@@ -166,11 +165,11 @@ class MoleculeSample():
     # We need the atoms in a numeric format, but by linking to the atoms we make sure they stay in sync
     @property
     def atoms_num(self):
-        return [self.atom2int[atom] for atom in self.atoms]
+        return [atom2int[atom] for atom in self.atoms]
 
     @property
     def targets_num(self):
-        return [self.atom2int[atom] for atom in self.targets]
+        return [atom2int[atom] for atom in self.targets]
 
     def copy(self):
         """ 

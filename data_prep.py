@@ -58,6 +58,8 @@ with open('data/qm9.csv','r') as file:
 
 
         molecule = Chem.MolFromSmiles(smiles)
+        #convert aromatic bonds to single/double
+        Chem.Kekulize(molecule)
         # Hydrogen is normally implicit, but we need them to exist explicitly in the molecule
         molecule = Chem.AddHs(molecule)
 
@@ -65,13 +67,21 @@ with open('data/qm9.csv','r') as file:
 
         for atom in molecule.GetAtoms():
             molecule_list.append(periodic_table[atom.GetAtomicNum()])
-
+        
         Adj = Chem.rdmolops.GetAdjacencyMatrix(molecule)
 
+
+        Adj2 = np.zeros(Adj.shape, dtype=np.int32)
+        for bond in molecule.GetBonds():
+            start = bond.GetBeginAtomIdx()
+            end = bond.GetEndAtomIdx()
+            bond_type = bond.GetBondType()
+            Adj2[start,end] = int(bond_type)
+            Adj2[end,start] = int(bond_type)
         # convert list of atoms to numpy array for easier computations later
         molecule_list = np.asarray(molecule_list)
 
-        molecules_Adjacency_list.append([molecule_list, Adj, constants, smiles])
+        molecules_Adjacency_list.append([molecule_list, Adj, Adj2, constants, smiles])
 
 print("Splitting data..")
 molecules_Adjacency_train, molecules_Adjacency_test = train_test_split(molecules_Adjacency_list, test_size=0.15, random_state=42)
@@ -82,7 +92,7 @@ pickle.dump(molecules_Adjacency_train, open('data/adjacency_matrix_train.pkl', '
 pickle.dump(molecules_Adjacency_validation, open('data/adjacency_matrix_validation.pkl', 'wb'))
 pickle.dump(molecules_Adjacency_test, open('data/adjacency_matrix_test.pkl', 'wb'))
 
-#print("Splitting using scaffold")
+print("Splitting using scaffold")
 molecules_train, molecules_validation, molecules_test = scaffold_split(molecules_Adjacency_list, frac_train=0.7, frac_valid=0.15, frac_test=0.15, random_state=42)
 pickle.dump(molecules_train, open('data/adjacency_matrix_train_scaffold.pkl', 'wb'))
 pickle.dump(molecules_validation, open('data/adjacency_matrix_validation_scaffold.pkl', 'wb'))

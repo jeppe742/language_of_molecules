@@ -21,7 +21,7 @@ class TransformerModel(BaseNetwork):
         super(TransformerModel, self).__init__(name=name, log=log, use_cuda=use_cuda)
 
         if edge_encoding == EDGE_ENCODING_TYPE.RELATIVE_POSITION:
-            self.edges_embedding = ModuleList([Embedding(3, embedding_dim), Embedding(3, embedding_dim)])
+            self.edges_embedding = ModuleList([Embedding(5, embedding_dim), Embedding(5, embedding_dim)])
         else:
             self.edges_embedding = None
         self.embeddings = Embedding(num_embeddings=num_embeddings, embedding_dim=embedding_dim, padding_idx=0)

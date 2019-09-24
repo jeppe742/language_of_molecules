@@ -1,4 +1,4 @@
-from torch.optim import Adam
+from torch.optim import Adam,lr_scheduler
 import torch
 import argparse
 from utils.dataloader import QM9Dataset, DataLoader
@@ -24,6 +24,8 @@ parser.add_argument('--use_cuda', default=True, type=bool)
 parser.add_argument('--debug', default=False, type=bool)
 parser.add_argument('--scaffold', default=False, type=bool)
 parser.add_argument('--model',choices=['BoN','BoA','Transformer'], default='Transformer')
+parser.add_argument('--gamma',default=1, type=float)
+parser.add_argument('--bond_order', default=False, type=bool)
 args = parser.parse_args()
 
 
@@ -33,7 +35,8 @@ validation_file = 'data/adjacency_matrix_validation_scaffold.pkl' if args.scaffo
 training = QM9Dataset(data=train_file,
                       num_masks=args.num_masks,
                       epsilon_greedy=args.epsilon_greedy,
-                      num_fake=args.num_fake)
+                      num_fake=args.num_fake,
+                      bond_order=args.bond_order)
 
 train_dl = DataLoader(
     training,
@@ -45,7 +48,7 @@ val_dls = []
 if args.num_fake == 0:
     for masks in range(1, 6):
 
-        val_set = QM9Dataset(data=validation_file, num_masks=masks)
+        val_set = QM9Dataset(data=validation_file, num_masks=masks,bond_order=args.bond_order)
         val_dl = DataLoader(
             val_set,
             batch_size=args.batch_size)
@@ -54,7 +57,7 @@ if args.num_fake == 0:
 if args.num_masks == 0:
     for fakes in range(1, 6):
 
-        val_set = QM9Dataset(data=validation_file, num_fake=fakes)
+        val_set = QM9Dataset(data=validation_file, num_fake=fakes,bond_order=args.bond_order)
         val_dl = DataLoader(
             val_set,
             batch_size=args.batch_size)
@@ -81,6 +84,8 @@ if args.model =='Transformer':
                                             f"_lr={args.lr}"
                                             f"_edge_encoding={args.edge_encoding}"
                                             f"_epsilon_greedy={args.epsilon_greedy}"
+                                            f"_gamma={args.gamma}"
+                                            f"_bond_order={args.bond_order}"
                                             f"{args.name_postfix}"
                                         )
                                     )
@@ -129,5 +134,9 @@ if not args.debug:
     wandb.config.update(args)
     wandb.watch(model)
 
-model.train_network(train_dl, val_dls, num_epochs=args.num_epochs, eval_after_epochs=1,
-                               log_after_epochs=1, optimizer_fun=optimizer_fun, save_model=True)
+model.train_network(train_dl, val_dls, num_epochs=args.num_epochs, 
+                               eval_after_epochs=1,
+                               log_after_epochs=1, 
+                               optimizer_fun=optimizer_fun, 
+                               save_model=True,
+                               scheduler_fun=lambda optimizer:lr_scheduler.ExponentialLR(optimizer, args.gamma))

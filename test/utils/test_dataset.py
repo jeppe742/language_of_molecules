@@ -8,10 +8,23 @@ def test_dataset():
     np.random.seed(0)
     sample = qm9[0]
 
-    assert sample.length == 15
-    assert sample.targets == np.array(['C'])
-    assert np.array_equal(sample.target_mask, np.array([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+    assert sample.length == 19
+    assert sample.targets == np.array(['N'])
+    assert np.array_equal(sample.target_mask, np.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+    assert sample.adj.max()==1
 
+    dl = DataLoader(qm9, batch_size=10)
+    a = next(iter(dl))
+
+    qm9 = QM9Dataset('data/adjacency_matrix_train.pkl', bond_order=True)
+
+    np.random.seed(0)
+    sample = qm9[0]
+
+    assert sample.length == 19
+    assert sample.targets == np.array(['N'])
+    assert np.array_equal(sample.target_mask, np.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+    assert sample.adj.max()==2
     dl = DataLoader(qm9, batch_size=10)
     a = next(iter(dl))
 
