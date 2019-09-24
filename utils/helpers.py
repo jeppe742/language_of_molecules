@@ -3,6 +3,9 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import f1_score
 import torch
 
+ATOMS = ['H','C','O','N','F','M']
+atom2int = {atom: (i+1) for i, atom in enumerate(ATOMS)}
+int2atom = {(i+1): atom for i, atom in enumerate(ATOMS)}
 
 def download_files():
     import wget
@@ -84,7 +87,7 @@ def scaffold_split(dataset, frac_train=0.7, frac_valid=0.15, frac_test=0.15 , ra
     errors=0
     for ind, data in enumerate(dataset):
       
-      smiles = data[3]
+      smiles = data[4]
       
       try:
         scaffold = MurckoScaffold.MurckoScaffoldSmiles(smiles)
@@ -121,7 +124,7 @@ def scaffold_split(dataset, frac_train=0.7, frac_valid=0.15, frac_test=0.15 , ra
 
     return train, valid, test
 
-def plot_prediction(smiles, atoms, predictions):
+def plot_prediction(smiles, atoms, targets, predictions):
   import tempfile
   import rdkit.Chem as chem
   import rdkit.Chem.rdchem as rdchem
@@ -129,25 +132,51 @@ def plot_prediction(smiles, atoms, predictions):
   from PIL import Image
   import matplotlib.pyplot as plt
 
-  fig=plt.figure()
-  fig.add_subplot(1,3,1)
-  plot_molecule(smiles, show=False)
-
-
-
   mol = chem.MolFromSmiles(smiles)
+
+  chem.Kekulize(mol, clearAromaticFlags=True)
+  mol = chem.AddHs(mol)
   mol = rdchem.RWMol(mol)
 
-  for i, atom in enumerate(atoms):
-    if atom=='M':
-      mol.ReplaceAtom(i, rdchem.Atom('Ts'))
+  masked_idx = []
+  masked_color = {}
+  # for i, (atom, target, prediction) in enumerate(zip(atoms, targets, predictions)):
+  #   if atom=='M':
+  #     masked_idx += [i]
 
-  smiles_masked = chem.MolToSmiles(mol)
+  #     if target==prediction:
+  #       masked_color[i] = (0,1,0)
+  #     else:
+  #       masked_color[i] = (1,0,0)
 
-  fig.add_subplot(1,3,2)
-  plot_molecule(smiles_masked, show=False)
+  masked_idx = [idx for (idx,atom) in enumerate(atoms) if atom=='M']
 
-def plot_molecule(smiles, show=True):
+
+  #replace the masks with the predictions
+  for i, target,prediction in zip(masked_idx,targets,predictions):
+    if target==prediction:
+      masked_color[i] = (0,1,0)
+    else:
+      masked_color[i] = (1,0.3,0)
+  
+  fig=plt.figure()
+  fig.add_subplot(1,2,1)
+  plt.title('Input')
+  plot_molecule(mol, highlight_atoms=masked_idx, highlight_atom_colors=masked_color,show=False)
+
+    
+  #replace the masks with the predictions
+  for i, target,prediction in zip(masked_idx,targets,predictions):
+    mol.ReplaceAtom(i, rdchem.Atom(int2atom[prediction.item()+1]))
+    # if mol.GetBondWithIdx(i).GetIsAromatic():
+    #   mol.GetAtomWithIdx(i).SetIsAromatic(1)
+
+  fig.add_subplot(1,2,2)
+  plt.title('Prediction')
+  plot_molecule(mol,highlight_atoms=masked_idx, highlight_atom_colors=masked_color)
+
+
+def plot_molecule(molecule, highlight_atoms=[], highlight_atom_colors={}, show=True):
   import tempfile
   import rdkit.Chem as chem
   import rdkit.Chem.rdchem as rdchem
@@ -156,14 +185,15 @@ def plot_molecule(smiles, show=True):
   import matplotlib.image as mpimage
   import matplotlib.pyplot as plt
 
-  mol = chem.MolFromSmiles(smiles)
-  chem.SanitizeMol(mol)
-  chem.Kekulize(mol)
-  mol = chem.AddHs(mol)
-  draw.rdDepictor.Compute2DCoords(mol)
+  if isinstance(molecule,str):
+    molecule = chem.MolFromSmiles(molecule)
+    chem.Kekulize(molecule,clearAromaticFlags=True)
+    chem.SanitizeMol(molecule)
+    molecule = chem.AddHs(molecule)
+  draw.rdDepictor.Compute2DCoords(molecule)
 
-  drawer = draw.rdMolDraw2D.MolDraw2DCairo(600,500)
-  tm = draw.rdMolDraw2D.PrepareAndDrawMolecule(drawer, mol)
+  drawer = draw.rdMolDraw2D.MolDraw2DCairo(500,500)
+  tm = draw.rdMolDraw2D.PrepareAndDrawMolecule(drawer, molecule, highlightAtoms=highlight_atoms, highlightAtomColors=highlight_atom_colors)
   drawer.FinishDrawing()
 
   png = drawer.GetDrawingText()
@@ -172,7 +202,7 @@ def plot_molecule(smiles, show=True):
       tmp.write(png)
       image = mpimage.imread(tmp)
       #image = Image.open(tmp)
-      plt.imshow(image)
+      plt.imshow(image, interpolation="bilinear")
       #image.show()
 
   if show:
