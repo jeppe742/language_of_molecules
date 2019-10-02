@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import f1_score
 import torch
+from tqdm import tqdm
 
 ATOMS = ['H','C','O','N','F','M']
 atom2int = {atom: (i+1) for i, atom in enumerate(ATOMS)}
@@ -176,7 +177,7 @@ def plot_prediction(smiles, atoms, targets, predictions):
   plot_molecule(mol,highlight_atoms=masked_idx, highlight_atom_colors=masked_color)
 
 
-def plot_molecule(molecule, highlight_atoms=[], highlight_atom_colors={}, show=True):
+def plot_molecule(molecule, highlight_atoms=[], highlight_atom_colors={}, show=True, inchi=False):
   import tempfile
   import rdkit.Chem as chem
   import rdkit.Chem.rdchem as rdchem
@@ -186,7 +187,10 @@ def plot_molecule(molecule, highlight_atoms=[], highlight_atom_colors={}, show=T
   import matplotlib.pyplot as plt
 
   if isinstance(molecule,str):
-    molecule = chem.MolFromSmiles(molecule)
+    if inchi:
+      molecule = chem.MolFromInchi(molecule)
+    else:
+      molecule = chem.MolFromSmiles(molecule)
     chem.Kekulize(molecule,clearAromaticFlags=True)
     chem.SanitizeMol(molecule)
     molecule = chem.AddHs(molecule)
@@ -203,6 +207,7 @@ def plot_molecule(molecule, highlight_atoms=[], highlight_atom_colors={}, show=T
       image = mpimage.imread(tmp)
       #image = Image.open(tmp)
       plt.imshow(image, interpolation="bilinear")
+      plt.axis('off')
       #image.show()
 
   if show:
