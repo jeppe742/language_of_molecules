@@ -40,10 +40,10 @@ class BagOfWordsLayer(BaseNetwork):
 
 class BagOfWordsModel(BaseNetwork):
     def __init__(self,
-                 num_embeddings=7,
+                 num_embeddings=9,
                  embedding_dim=64,
                  num_layers=1,
-                 num_classes=5,
+                 num_classes=7,
                  name=None,
                  BagOfWordsType=BagOfWordsType.ATOMS,
                  use_cuda=False):

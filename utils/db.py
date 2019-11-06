@@ -18,7 +18,8 @@ class Database():
         
         CREATE TABLE IF NOT EXISTS models(
             model_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            model_name TEXT
+            model_name TEXT,
+            model_name_short TEXT
         );
 
         
@@ -27,14 +28,8 @@ class Database():
             prediction_id INTEGER PRIMARY KEY AUTOINCREMENT,
             prediction INT,
             target INT,
-            p_H NUMERIC,
-            p_C NUMERIC,
-            p_O NUMERIC,
-            p_N NUMERIC,
-            p_F NUMERIC,
             cross_entropy NUMERIC,
             num_masks INT,
-            num_fake INT,
             model_id INT,
             molecule_id INT,
 
@@ -43,6 +38,7 @@ class Database():
 
             FOREIGN KEY (molecule_id)
                 REFERENCES molecules (molecule_id)
+  
         );
         DROP TABLE IF EXISTS atoms;
         CREATE TABLE atoms(
@@ -52,6 +48,8 @@ class Database():
         INSERT INTO atoms
         VALUES (0,'H'),(1,'C'),(2,'O'),(3,'N'),(4,'F')
         ;
+
+      
             """)
 
         
@@ -63,13 +61,8 @@ class Database():
         data(
             length INT, 
             model_name TEXT,
-            num_fake INT,
+            model_name_short TEXT,
             num_masks INT, 
-            p_H NUMERIC,
-            p_C NUMERIC,
-            p_O NUMERIC,
-            p_N NUMERIC,
-            p_F NUMERIC,
             prediction INT, 
             target INT, 
             cross_entropy NUMERIC,
@@ -79,59 +72,43 @@ class Database():
             INSERT INTO 
             temp.data (length,
                         model_name, 
-                        num_fake, 
+                        model_name_short,
                         num_masks, 
-                        p_H, 
-                        p_C, 
-                        p_O, 
-                        p_N, 
-                        p_F, 
                         prediction, 
                         target, 
                         cross_entropy, 
                         smiles
                         )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""", insert_values)
+            VALUES(?,?,?,?,?,?,?,?)""", insert_values)
 
     def apply_staged(self):
 
         self.conn.executescript("""
         
-        INSERT INTO models(model_name)
-        SELECT distinct model_name from temp.data where model_name not in (select model_name from models);
+        INSERT INTO models(model_name, model_name_short)
+        SELECT distinct model_name, model_name_short from temp.data where model_name not in (select distinct model_name from models);
 
         INSERT INTO molecules(smiles, length)
-        SELECT smiles, length from temp.data where smiles not in (select smiles from molecules);
+        SELECT distinct smiles, length from temp.data where smiles not in (select distinct smiles from molecules);
 
         INSERT INTO 
         predictions(prediction,
                     target,
-                    p_H,
-                    p_C,
-                    p_O,
-                    p_N,
-                    p_F,
                     cross_entropy,
                     num_masks,
-                    num_fake,
                     model_id,
                     molecule_id
         )
         SELECT  prediction,
                 target,
-                p_H,
-                p_C,
-                p_O,
-                p_N,
-                p_F,
                 cross_entropy,
                 num_masks,
-                num_fake,
                 model_id,
                 molecule_id
         from temp.data 
         join models on models.model_name=temp.data.model_name
         join molecules on molecules.smiles=temp.data.smiles
+
         ;
 
 

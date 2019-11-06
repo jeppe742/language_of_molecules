@@ -26,11 +26,12 @@ parser.add_argument('--scaffold', default=False, type=bool)
 parser.add_argument('--model',choices=['BoN','BoA','Transformer'], default='Transformer')
 parser.add_argument('--gamma',default=1, type=float)
 parser.add_argument('--bond_order', default=False, type=bool)
+parser.add_argument('--dataset', default='qm9', choices=['qm9','zinc'])
 args = parser.parse_args()
 
 
-train_file = 'data/adjacency_matrix_train_scaffold.pkl' if args.scaffold else 'data/adjacency_matrix_train.pkl'
-validation_file = 'data/adjacency_matrix_validation_scaffold.pkl' if args.scaffold else 'data/adjacency_matrix_validation.pkl'
+train_file = f'data/{args.dataset}/adjacency_matrix_train_scaffold.pkl' if args.scaffold else f'data/{args.dataset}/adjacency_matrix_train.pkl'
+validation_file = f'data/{args.dataset}/adjacency_matrix_validation_scaffold.pkl' if args.scaffold else f'data/{args.dataset}/adjacency_matrix_validation.pkl'
 
 training = QM9Dataset(data=train_file,
                       num_masks=args.num_masks,
@@ -86,6 +87,7 @@ if args.model =='Transformer':
                                             f"_epsilon_greedy={args.epsilon_greedy}"
                                             f"_gamma={args.gamma}"
                                             f"_bond_order={args.bond_order}"
+                                            f"_dataset={args.dataset}"
                                             f"{args.name_postfix}"
                                         )
                                     )
@@ -104,6 +106,7 @@ elif args.model == 'BoA':
                                             f"_lr={args.lr}"
                                             f"_epsilon_greedy={args.epsilon_greedy}"
                                             f"_bow_type={BagOfWordsType.ATOMS}"
+                                            f"_dataset={args.dataset}"
                                             f"{args.name_postfix}"
                                         )
                         )
@@ -122,6 +125,7 @@ elif args.model == 'BoN':
                                             f"_lr={args.lr}"
                                             f"_epsilon_greedy={args.epsilon_greedy}"
                                             f"_bow_type={BagOfWordsType.NEIGHBOURS}"
+                                            f"_dataset={args.dataset}"
                                             f"{args.name_postfix}"
                                         )
                         )

@@ -7,11 +7,11 @@ import torch
 
 class TransformerModel(BaseNetwork):
     def __init__(self,
-                 num_embeddings=7,
+                 num_embeddings=12,
                  embedding_dim=64,
                  num_layers=1,
                  num_heads=1,
-                 num_classes=5,
+                 num_classes=10,
                  dropout=0.2,
                  edge_encoding=EDGE_ENCODING_TYPE.RELATIVE_POSITION,
                  log=False,

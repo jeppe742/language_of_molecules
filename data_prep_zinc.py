@@ -7,8 +7,8 @@ import pickle
 from utils.dataloader import QM9Dataset
 import numpy as np
 import os
-from utils.helpers import download_files, scaffold_split
-
+from utils.helpers import download_files, scaffold_split, plot_molecule
+import glob
 
 
 periodic_table = {
@@ -16,48 +16,30 @@ periodic_table = {
     6: 'C',
     7: 'N',
     8: 'O',
-    9: 'F'
+    9: 'F',
+    15:'P',
+    16:'S',
+    17:'Cl',
+    35:'Br',
+    53:'I'
 }
 
 molecules_Adjacency_list = []
+ions = 0
 
-if not os.path.exists("data/qm9.csv"):
+if not os.path.exists("data/250k_rndm_zinc_drugs_clean.smi"):
     print("Data not found locally")
-    download_files()
-
-with open('data/qm9.csv','r') as file:
-    #skip header
-    next(file)
-    for line in tqdm(file, total=133886):
-        symbols = []
-        positions = []
-        charges = []
-
-      
-        fields = line.strip().split(',')
-
-        smiles = fields[1]
-
-        constants = {
-            'rot_a': float(fields[2]),
-            'rot_b': float(fields[3]),
-            'rot_c': float(fields[4]),
-            'mu': float(fields[5]),
-            'alpha': float(fields[6]),
-            'homo': float(fields[7]),
-            'lumo': float(fields[8]),
-            'gap': float(fields[9]),
-            'r2': float(fields[10]),
-            'zpve': float(fields[11]),
-            'u0': float(fields[12]),
-            'u': float(fields[13]),
-            'h': float(fields[14]),
-            'g': float(fields[15]),
-            'cv': float(fields[16])
-        }
-
+    download_files("https://raw.githubusercontent.com/mkusner/grammarVAE/master/data/250k_rndm_zinc_drugs_clean.smi")
+with open('data/250k_rndm_zinc_drugs_clean.smi','r') as file:
+    for line in tqdm(file, total=249456):
+        smiles = line.strip()
 
         molecule = Chem.MolFromSmiles(smiles)
+
+        if '+' in smiles or '-' in smiles:
+            ions += 1
+            #continue
+
         #convert aromatic bonds to single/double
         Chem.Kekulize(molecule)
         # Hydrogen is normally implicit, but we need them to exist explicitly in the molecule
@@ -81,19 +63,23 @@ with open('data/qm9.csv','r') as file:
         # convert list of atoms to numpy array for easier computations later
         molecule_list = np.asarray(molecule_list)
 
-        molecules_Adjacency_list.append([molecule_list, Adj, Adj2, constants, smiles])
+        molecules_Adjacency_list.append([molecule_list, Adj, Adj2, {}, smiles])
+
+print(f" {ions} molecules containing ions")
+
 
 print("Splitting data..")
 molecules_Adjacency_train, molecules_Adjacency_test = train_test_split(molecules_Adjacency_list, test_size=0.15, random_state=42)
 molecules_Adjacency_train, molecules_Adjacency_validation = train_test_split(molecules_Adjacency_train, test_size=0.15/0.85, random_state=42)
 
 print("dumping splits..")
-pickle.dump(molecules_Adjacency_train, open('data/adjacency_matrix_train.pkl', 'wb'))
-pickle.dump(molecules_Adjacency_validation, open('data/adjacency_matrix_validation.pkl', 'wb'))
-pickle.dump(molecules_Adjacency_test, open('data/adjacency_matrix_test.pkl', 'wb'))
+if not os.path.exists("data/zinc") : os.makedirs("data/zinc")
+pickle.dump(molecules_Adjacency_train, open('data/zinc/adjacency_matrix_train.pkl', 'wb'))
+pickle.dump(molecules_Adjacency_validation, open('data/zinc/adjacency_matrix_validation.pkl', 'wb'))
+pickle.dump(molecules_Adjacency_test, open('data/zinc/adjacency_matrix_test.pkl', 'wb'))
 
 print("Splitting using scaffold")
 molecules_train, molecules_validation, molecules_test = scaffold_split(molecules_Adjacency_list, frac_train=0.7, frac_valid=0.15, frac_test=0.15, random_state=42)
-pickle.dump(molecules_train, open('data/adjacency_matrix_train_scaffold.pkl', 'wb'))
-pickle.dump(molecules_validation, open('data/adjacency_matrix_validation_scaffold.pkl', 'wb'))
-pickle.dump(molecules_test, open('data/adjacency_matrix_test.pkl_scaffold', 'wb'))
+pickle.dump(molecules_train, open('data/zinc/adjacency_matrix_train_scaffold.pkl', 'wb'))
+pickle.dump(molecules_validation, open('data/zinc/adjacency_matrix_validation_scaffold.pkl', 'wb'))
+pickle.dump(molecules_test, open('data/zinc/adjacency_matrix_test_scaffold.pkl', 'wb'))

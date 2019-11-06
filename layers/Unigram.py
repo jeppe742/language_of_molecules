@@ -4,12 +4,11 @@ import numpy as np
 
 
 class UnigramModel(BaseNetwork):  
-    def __init__(self,val_iter,
+    def __init__(self,
                 name=None):
 
         super(UnigramModel, self).__init__(name=name)
 
-        self.val_iter=val_iter
 
     def forward(self, batch):
         out={}

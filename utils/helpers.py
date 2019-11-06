@@ -4,17 +4,16 @@ from sklearn.metrics import f1_score
 import torch
 from tqdm import tqdm
 
-ATOMS = ['H','C','O','N','F','M']
+ATOMS = ['H','C','O','N','F','P','S','Cl','Br','I','M']
 atom2int = {atom: (i+1) for i, atom in enumerate(ATOMS)}
 int2atom = {(i+1): atom for i, atom in enumerate(ATOMS)}
 
-def download_files():
+def download_files(url):
     import wget
     import tarfile
     from tqdm import tqdm
-    url = "http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm9.csv"
     print("Downloading ...")
-    wget.download(url, "data/qm9.csv")
+    wget.download(url, f"data/{url.split('/')[-1]}")
 
 def length_to_mask(length, max_len=None, dtype=None):
     """length: B.
@@ -125,7 +124,78 @@ def scaffold_split(dataset, frac_train=0.7, frac_valid=0.15, frac_test=0.15 , ra
 
     return train, valid, test
 
-def plot_prediction(smiles, atoms, targets, predictions):
+num_to_atom = {
+    'H':'H',
+    'C':'C',
+    'O':'O',
+    'N':'N',
+    'F':'F',
+    'M':'??'
+}
+
+def red(x):
+    # return in RGB order
+    # x=0 -> 1, 1, 1 (white)
+    # x=1 -> 1, 0, 0 (red)
+    return 1., 1. - x, 1. - x
+
+def plotMoleculeAttention(attention,smiles,name,atoms):
+  from rdkit import Chem
+  from rdkit.Chem import rdDepictor
+  from rdkit.Chem.Draw import rdMolDraw2D
+  from IPython.display import display, HTML, SVG
+  from cairosvg import svg2png
+  import tempfile
+  import matplotlib.image as mpimage
+  import matplotlib.pyplot as plt
+  mol = Chem.AddHs(Chem.MolFromSmiles(smiles))
+  mc = Chem.Mol(mol.ToBinary())
+  try:
+      Chem.Kekulize(mol)
+  except:
+      mc=Chem.Mol(mol.ToBinary())
+  rdDepictor.Compute2DCoords(mc)
+  threshold = np.mean(attention)
+  highlight_atoms=[]
+  for j in range(len(attention)):
+      if attention[j]>=threshold:
+          highlight_atoms.append(j)
+  atom_colors = {i: red(e) for i, e in enumerate(attention) if attention[i]>=threshold}
+  drawer = rdMolDraw2D.MolDraw2DCairo(10, 10)
+  drawer_svg = rdMolDraw2D.MolDraw2DSVG(500,500)
+  opts = drawer.drawOptions()
+  for i in range(len(atoms)):
+      opts.atomLabels[i]=num_to_atom[atoms[i]]
+  tm = rdMolDraw2D.PrepareMolForDrawing(mc)
+  drawer.DrawMolecule(tm,highlightAtoms=highlight_atoms,highlightAtomColors=atom_colors)
+  drawer.FinishDrawing()
+  drawer_svg .DrawMolecule(tm,highlightAtoms=highlight_atoms,highlightAtomColors=atom_colors)
+  drawer_svg.FinishDrawing()
+  svg = drawer_svg.GetDrawingText()
+
+
+  png = drawer.GetDrawingText()
+
+  with tempfile.NamedTemporaryFile() as tmp:
+      tmp.write(png)
+      image = mpimage.imread(tmp)
+      #image = Image.open(tmp)
+      plt.imshow(image, interpolation="bilinear")
+      plt.axis('off')
+      #image.show()
+  #SVG(svg.replace('svg:', ''))
+  #svg2png(bytestring=svg, write_to=name+smiles+'.png')
+
+
+
+def plot_attention(smiles, atoms,name, attention):
+  #for i in range(1,5):
+  #att = torch.mean(attention,dim=0).detach().cpu().numpy()
+  #attention=(att.sum(axis=0)/len(att.sum(axis=0))).tolist()
+  plotMoleculeAttention(attention[0,:].detach().cpu().numpy(), smiles,name, atoms)
+
+
+def plot_prediction(smiles, atoms, targets, predictions, probabilities):
   import tempfile
   import rdkit.Chem as chem
   import rdkit.Chem.rdchem as rdchem
@@ -155,29 +225,47 @@ def plot_prediction(smiles, atoms, targets, predictions):
 
   #replace the masks with the predictions
   for i, target,prediction in zip(masked_idx,targets,predictions):
-    if target==prediction:
-      masked_color[i] = (0,1,0)
-    else:
-      masked_color[i] = (1,0.3,0)
+    #if target==prediction:
+    masked_color[i] = (0,1,0)
+    #else:
+    #  masked_color[i] = (1,0.3,0)
   
-  fig=plt.figure()
-  fig.add_subplot(1,2,1)
-  plt.title('Input')
-  plot_molecule(mol, highlight_atoms=masked_idx, highlight_atom_colors=masked_color,show=False)
-
+  ax=plt.subplot()
+  #fig.add_subplot(1,3,1)
+  #ax.set_title('Input')
+  plot_molecule(mol, highlight_atoms=masked_idx, highlight_atom_colors=masked_color,show=False, ax=ax)
+  fig = plt.figure(figsize=(2,2))
+  ax=plt.subplot()
     
   #replace the masks with the predictions
-  for i, target,prediction in zip(masked_idx,targets,predictions):
-    mol.ReplaceAtom(i, rdchem.Atom(int2atom[prediction.item()+1]))
+  # for i, target,prediction in zip(masked_idx,targets,predictions):
+  #   mol.ReplaceAtom(i, rdchem.Atom(int2atom[prediction.item()+1]))
     # if mol.GetBondWithIdx(i).GetIsAromatic():
     #   mol.GetAtomWithIdx(i).SetIsAromatic(1)
 
-  fig.add_subplot(1,2,2)
-  plt.title('Prediction')
-  plot_molecule(mol,highlight_atoms=masked_idx, highlight_atom_colors=masked_color)
+  #fig.add_subplot(1,3,2)
+  #ax2.set_title('Prediction')
+  #coords = plot_molecule(mol,highlight_atoms=masked_idx, highlight_atom_colors=masked_color,show=False, ax=ax, return_idx=masked_idx[0])
 
+  #axins_coords = [0.6, 0.0]
+  #axins = ax.inset_axes([axins_coords[0],axins_coords[1],0.3,0.3])
+  
 
-def plot_molecule(molecule, highlight_atoms=[], highlight_atom_colors={}, show=True, inchi=False):
+  #fig.add_subplot(1,3,3)
+  # ax3.set_title('Probability')
+  ax.yaxis.set_label_position("right")
+  ax.yaxis.tick_right()
+  ax.bar([1,2,3,4,5], probabilities.detach().cpu().numpy()[0,:])
+  ax.set_xticks([1,2,3,4,5])
+  ax.set_xticklabels(['H','C','O','N','F'])
+  ax.set_ylim([0,1])
+  ax.set_ylabel('Probability')
+  #ax.plot([coords.x+10, axins_coords[0]*500], [coords.y+10, (1-axins_coords[1])*1000], color='k', alpha=0.25)
+  #ax.plot([coords.x+10, axins_coords[0]*1000], [coords.y+10, (1-axins_coords[1])*1000 - 0.3*1000], color='k', alpha=0.25)
+  fig.tight_layout()
+  plt.show()
+
+def plot_molecule(molecule, ax, highlight_atoms=[], highlight_atom_colors={}, show=True, inchi=False, return_idx=None):
   import tempfile
   import rdkit.Chem as chem
   import rdkit.Chem.rdchem as rdchem
@@ -197,18 +285,27 @@ def plot_molecule(molecule, highlight_atoms=[], highlight_atom_colors={}, show=T
   draw.rdDepictor.Compute2DCoords(molecule)
 
   drawer = draw.rdMolDraw2D.MolDraw2DCairo(500,500)
-  tm = draw.rdMolDraw2D.PrepareAndDrawMolecule(drawer, molecule, highlightAtoms=highlight_atoms, highlightAtomColors=highlight_atom_colors)
+  drawer_svg = draw.rdMolDraw2D.MolDraw2DSVG(500,500)
+  draw.rdMolDraw2D.PrepareAndDrawMolecule(drawer, molecule, highlightAtoms=highlight_atoms, highlightAtomColors=highlight_atom_colors)
+  draw.rdMolDraw2D.PrepareAndDrawMolecule(drawer_svg, molecule, highlightAtoms=highlight_atoms, highlightAtomColors=highlight_atom_colors)
   drawer.FinishDrawing()
 
   png = drawer.GetDrawingText()
+  svg = drawer_svg.GetDrawingText()
+
+  with open('images/molecule.svg','w') as f:
+    f.write(svg)
 
   with tempfile.NamedTemporaryFile() as tmp:
       tmp.write(png)
       image = mpimage.imread(tmp)
       #image = Image.open(tmp)
-      plt.imshow(image, interpolation="bilinear")
-      plt.axis('off')
+      ax.imshow(image, interpolation="bilinear")
+      ax.axis('off')
       #image.show()
 
   if show:
     plt.show()
+  if return_idx is not None:
+
+    return drawer.GetDrawCoords(return_idx)

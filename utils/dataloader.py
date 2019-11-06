@@ -50,6 +50,7 @@ class MoleculeBatch():
         self.targets = []
         self.targets_num = []
         self.adj = []
+        self.adj2 = []
         self.properties = []
         self.target_mask = []
         self.lengths = []
@@ -62,6 +63,7 @@ class MoleculeBatch():
             self.targets += [sample.targets]
             self.targets_num += [sample.targets_num]
             self.adj += [sample.adj]
+            self.adj2 += [sample.adj2]
             self.properties += [sample.properties]
             self.target_mask += [sample.target_mask]
             self.lengths += [sample.length]
@@ -70,6 +72,7 @@ class MoleculeBatch():
         self.atoms_num = torch.tensor(pad(self.atoms_num))
         self.targets_num = torch.tensor(pad(self.targets_num))
         self.adj = torch.tensor(pad(self.adj))
+        self.adj2 = torch.tensor(pad(self.adj2))
         self.target_mask = torch.tensor(pad(self.target_mask), dtype=torch.bool)
         self.lengths = torch.tensor(self.lengths)
 
@@ -79,6 +82,7 @@ class MoleculeBatch():
         self.atoms_num = self.atoms_num.cuda()
         self.targets_num = self.targets_num.cuda()
         self.adj = self.adj.cuda()
+        self.adj2 = self.adj2.cuda()
         self.target_mask = self.target_mask.cuda()
         self.lengths = self.lengths.cuda()
 
@@ -90,7 +94,8 @@ class QM9Dataset(Dataset):
                  num_fake=0,
                  epsilon_greedy=0.0,
                  bond_order=False,
-                 static=False):
+                 static=False,
+                 samples_per_molecule=1):
         """Create a dataset of graphs from the QM9 data.
 
         Arg:
@@ -105,6 +110,8 @@ class QM9Dataset(Dataset):
         self.epsilon_greedy = epsilon_greedy
         self.static = static
         self.bond_order = bond_order
+        self.samples_per_molecule = samples_per_molecule
+        self.unique_molecule_buffer = []
 
         self.corruption = CorruptionTransform(num_masks=num_masks, num_fake=num_fake, epsilon=epsilon_greedy)
 
@@ -115,19 +122,31 @@ class QM9Dataset(Dataset):
             samples = pickle.load(open(data, 'rb'))
             for (atoms, adj, adj2, properties, smiles) in samples:
                 if bond_order:
-                    self.data += [MoleculeSample(atoms, adj2, properties, smiles)]
+                    self.data += [MoleculeSample(atoms, adj2, adj2, properties, smiles)]
                 else:
-                    self.data += [MoleculeSample(atoms, adj, properties, smiles)]
+                    self.data += [MoleculeSample(atoms, adj, adj2, properties, smiles)]
 
     def __len__(self):
+        if self.num_masks<=self.samples_per_molecule:
+            return len(self.data)*self.samples_per_molecule
         return len(self.data)
 
     def __getitem__(self, idx):
-        sample = self.data[idx]
-        if self.corruption:
-            sample = self.corruption(sample)
+        sample = self.data[(idx - idx%self.samples_per_molecule)//self.samples_per_molecule]
 
-        return sample
+        sample_corrupted = self.corruption(sample)
+        atoms_string = ''.join(sample_corrupted.atoms.tolist())
+
+        while atoms_string in self.unique_molecule_buffer and sample.length>self.num_masks and self.num_masks<=5:
+            sample_corrupted = self.corruption(sample)
+            atoms_string = ''.join(sample_corrupted.atoms.tolist())
+
+        self.unique_molecule_buffer.append(atoms_string)
+
+        #clear buffer once we have enough samples per molecule
+        if len(self.unique_molecule_buffer)==self.samples_per_molecule:
+            self.unique_molecule_buffer = []
+        return sample_corrupted
 
     def save_static_dataset(self, filename):
         """
@@ -146,12 +165,13 @@ class QM9Dataset(Dataset):
 
 class MoleculeSample():
 
-    def __init__(self, atoms, adj, properties, smiles):
+    def __init__(self, atoms, adj, adj2, properties, smiles):
 
         # Set input properties
         self.atoms = atoms
 
         self.adj = adj
+        self.adj2 = adj2
         self.properties = properties
         self.smiles = smiles
 
@@ -176,7 +196,7 @@ class MoleculeSample():
         Create a copy of the molecule.
         This should make sure that the mutable atoms list isn't overridden in the corruption transformation
         """
-        return MoleculeSample(self.atoms.copy(), self.adj.copy(), self.properties.copy(), self.smiles)
+        return MoleculeSample(self.atoms.copy(), self.adj.copy(), self.adj2.copy(), self.properties.copy(), self.smiles)
 
     def plot(self):
         plot_molecule(self.smiles)
