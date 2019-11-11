@@ -7,7 +7,7 @@ from layers.bagofwords import BagOfWordsModel, BagOfWordsType
 import wandb
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--num_layers', default=4, type=int)
+parser.add_argument('--num_layers', default=2, type=int)
 parser.add_argument('--num_heads', default=3, type=int)
 parser.add_argument('--embedding_dim', default=64, type=int)
 parser.add_argument('--dropout', default=0.0, type=float)
@@ -70,6 +70,7 @@ if args.model =='Transformer':
     model = TransformerModel(num_layers=args.num_layers,
                                         num_heads=args.num_heads,
                                         embedding_dim=args.embedding_dim,
+                                        num_classes=5 if args.dataset=='qm9' else 10,
                                         dropout=args.dropout,
                                         edge_encoding=args.edge_encoding,
                                         use_cuda=args.use_cuda,
@@ -95,6 +96,7 @@ elif args.model == 'BoA':
     model = BagOfWordsModel(num_layers=args.num_layers,
                                         embedding_dim=args.embedding_dim,
                                         BagOfWordsType=BagOfWordsType.ATOMS,
+                                        num_classes=5 if args.dataset=='qm9' else 10,
                                         use_cuda=args.use_cuda,
                                         name=(
                                             "BagOfWords"
@@ -114,6 +116,7 @@ elif args.model == 'BoN':
     model = BagOfWordsModel(num_layers=args.num_layers,
                                         embedding_dim=args.embedding_dim,
                                         BagOfWordsType=BagOfWordsType.NEIGHBOURS,
+                                        num_classes=5 if args.dataset=='qm9' else 10,
                                         use_cuda=args.use_cuda,
                                         name=(
                                             "BagOfWords"
@@ -134,7 +137,7 @@ def optimizer_fun(param): return Adam(param, lr=args.lr)
 
 
 if not args.debug:
-    wandb.init(project="language-of-molecules", name=model.name)
+    wandb.init(project="language-of-molecules-ions", name=model.name)
     wandb.config.update(args)
     wandb.watch(model)
 

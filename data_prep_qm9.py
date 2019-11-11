@@ -20,7 +20,7 @@ periodic_table = {
 }
 
 molecules_Adjacency_list = []
-skipped = 0
+ions = 0
 
 if not os.path.exists("data/qm9.csv"):
     print("Data not found locally")
@@ -58,7 +58,7 @@ with open('data/qm9.csv','r') as file:
         }
 
         if '+' in smiles or '-' in smiles:
-            skipped += 1
+            ions += 1
             continue
         molecule = Chem.MolFromSmiles(smiles)
 
@@ -87,13 +87,13 @@ with open('data/qm9.csv','r') as file:
 
         molecules_Adjacency_list.append([molecule_list, Adj, Adj2, constants, smiles])
         
-print(f"skipped {skipped} molecules containing ions")
+print(f"{ions} molecules containing ions")
 print("Splitting data..")
 molecules_Adjacency_train, molecules_Adjacency_test = train_test_split(molecules_Adjacency_list, test_size=0.15, random_state=42)
 molecules_Adjacency_train, molecules_Adjacency_validation = train_test_split(molecules_Adjacency_train, test_size=0.15/0.85, random_state=42)
 
 print("dumping splits..")
-if not os.path.exists("data/zinc") : os.makedirs("data/zinc")
+if not os.path.exists("data/qm9") : os.makedirs("data/qm9")
 pickle.dump(molecules_Adjacency_train, open('data/qm9/adjacency_matrix_train.pkl', 'wb'))
 pickle.dump(molecules_Adjacency_validation, open('data/qm9/adjacency_matrix_validation.pkl', 'wb'))
 pickle.dump(molecules_Adjacency_test, open('data/qm9/adjacency_matrix_test.pkl', 'wb'))

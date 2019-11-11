@@ -31,7 +31,7 @@ class BagOfWordsLayer(BaseNetwork):
 
         if self.type == BagOfWordsType.NEIGHBOURS:
             # Mask all but neighbours
-            weights.masked_fill((1-adj).to(torch.bool), 0)
+            weights.masked_fill_((1-adj).to(torch.bool), 0)
 
         bow = torch.matmul(weights, atoms)  # [batch_size, molecule_size, embedding_dim]
 
@@ -40,7 +40,7 @@ class BagOfWordsLayer(BaseNetwork):
 
 class BagOfWordsModel(BaseNetwork):
     def __init__(self,
-                 num_embeddings=9,
+                 num_embeddings=12,
                  embedding_dim=64,
                  num_layers=1,
                  num_classes=7,

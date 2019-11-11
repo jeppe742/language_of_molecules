@@ -50,7 +50,7 @@ class MoleculeBatch():
         self.targets = []
         self.targets_num = []
         self.adj = []
-        self.adj2 = []
+        #self.adj2 = []
         self.properties = []
         self.target_mask = []
         self.lengths = []
@@ -63,7 +63,7 @@ class MoleculeBatch():
             self.targets += [sample.targets]
             self.targets_num += [sample.targets_num]
             self.adj += [sample.adj]
-            self.adj2 += [sample.adj2]
+            #self.adj2 += [sample.adj2]
             self.properties += [sample.properties]
             self.target_mask += [sample.target_mask]
             self.lengths += [sample.length]
@@ -72,7 +72,7 @@ class MoleculeBatch():
         self.atoms_num = torch.tensor(pad(self.atoms_num))
         self.targets_num = torch.tensor(pad(self.targets_num))
         self.adj = torch.tensor(pad(self.adj))
-        self.adj2 = torch.tensor(pad(self.adj2))
+        #self.adj2 = torch.tensor(pad(self.adj2))
         self.target_mask = torch.tensor(pad(self.target_mask), dtype=torch.bool)
         self.lengths = torch.tensor(self.lengths)
 
@@ -82,7 +82,7 @@ class MoleculeBatch():
         self.atoms_num = self.atoms_num.cuda()
         self.targets_num = self.targets_num.cuda()
         self.adj = self.adj.cuda()
-        self.adj2 = self.adj2.cuda()
+        #self.adj2 = self.adj2.cuda()
         self.target_mask = self.target_mask.cuda()
         self.lengths = self.lengths.cuda()
 
@@ -122,9 +122,9 @@ class QM9Dataset(Dataset):
             samples = pickle.load(open(data, 'rb'))
             for (atoms, adj, adj2, properties, smiles) in samples:
                 if bond_order:
-                    self.data += [MoleculeSample(atoms, adj2, adj2, properties, smiles)]
+                    self.data += [MoleculeSample(atoms, adj2, properties, smiles)]
                 else:
-                    self.data += [MoleculeSample(atoms, adj, adj2, properties, smiles)]
+                    self.data += [MoleculeSample(atoms, adj, properties, smiles)]
 
     def __len__(self):
         if self.num_masks<=self.samples_per_molecule:
@@ -165,13 +165,12 @@ class QM9Dataset(Dataset):
 
 class MoleculeSample():
 
-    def __init__(self, atoms, adj, adj2, properties, smiles):
+    def __init__(self, atoms, adj, properties, smiles):
 
         # Set input properties
         self.atoms = atoms
 
         self.adj = adj
-        self.adj2 = adj2
         self.properties = properties
         self.smiles = smiles
 
@@ -196,7 +195,7 @@ class MoleculeSample():
         Create a copy of the molecule.
         This should make sure that the mutable atoms list isn't overridden in the corruption transformation
         """
-        return MoleculeSample(self.atoms.copy(), self.adj.copy(), self.adj2.copy(), self.properties.copy(), self.smiles)
+        return MoleculeSample(self.atoms.copy(), self.adj.copy(), self.properties.copy(), self.smiles)
 
     def plot(self):
         plot_molecule(self.smiles)

@@ -46,7 +46,7 @@ class Database():
             atom TEXT
         );
         INSERT INTO atoms
-        VALUES (0,'H'),(1,'C'),(2,'O'),(3,'N'),(4,'F')
+        VALUES (0,'H'),(1,'C'),(2,'O'),(3,'N'),(4,'F'),(5,'P'),(6,'S'),(7,'Cl'),(8,'Br'),(9,'I')
         ;
 
       
