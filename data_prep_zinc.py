@@ -54,6 +54,7 @@ with open('data/250k_rndm_zinc_drugs_clean.smi','r') as file:
 
 
         Adj2 = np.zeros(Adj.shape, dtype=np.int32)
+
         for bond in molecule.GetBonds():
             start = bond.GetBeginAtomIdx()
             end = bond.GetEndAtomIdx()
@@ -63,7 +64,9 @@ with open('data/250k_rndm_zinc_drugs_clean.smi','r') as file:
         # convert list of atoms to numpy array for easier computations later
         molecule_list = np.asarray(molecule_list)
 
-        molecules_Adjacency_list.append([molecule_list, Adj, Adj2, {}, smiles])
+        charges = [atom.GetFormalCharge() for atom in molecule.GetAtoms()]
+        num_neighbours = Adj2.sum(axis=1)
+        molecules_Adjacency_list.append([molecule_list, Adj, Adj2, {}, smiles, charges, num_neighbours])
 
 print(f" {ions} molecules containing ions")
 
@@ -74,9 +77,9 @@ molecules_Adjacency_train, molecules_Adjacency_validation = train_test_split(mol
 
 print("dumping splits..")
 if not os.path.exists("data/zinc") : os.makedirs("data/zinc")
-pickle.dump(molecules_Adjacency_train, open('data/zinc/adjacency_matrix_train.pkl', 'wb'))
-pickle.dump(molecules_Adjacency_validation, open('data/zinc/adjacency_matrix_validation.pkl', 'wb'))
-pickle.dump(molecules_Adjacency_test, open('data/zinc/adjacency_matrix_test.pkl', 'wb'))
+# pickle.dump(molecules_Adjacency_train, open('data/zinc/adjacency_matrix_train.pkl', 'wb'))
+# pickle.dump(molecules_Adjacency_validation, open('data/zinc/adjacency_matrix_validation.pkl', 'wb'))
+# pickle.dump(molecules_Adjacency_test, open('data/zinc/adjacency_matrix_test.pkl', 'wb'))
 
 print("Splitting using scaffold")
 molecules_train, molecules_validation, molecules_test = scaffold_split(molecules_Adjacency_list, frac_train=0.7, frac_valid=0.15, frac_test=0.15, random_state=42)

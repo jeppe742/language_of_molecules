@@ -3,6 +3,8 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import f1_score
 import torch
 from tqdm import tqdm
+from scipy.special import softmax
+from scipy.optimize import least_squares
 
 ATOMS = ['H','C','O','N','F','P','S','Cl','Br','I','M']
 atom2int = {atom: (i+1) for i, atom in enumerate(ATOMS)}
@@ -32,9 +34,17 @@ def length_to_mask(length, max_len=None, dtype=None):
     return mask
 
 
-def softmax(x):
-    return np.exp(x)/sum(np.exp(x))
+# def softmax(x):
+#     return np.exp(x)/sum(np.exp(x))
 
+def inverse_softmax(p):
+    p_inv = torch.zeros(p.shape)
+
+    for i in range(p.size(0)):
+      res = least_squares(lambda x: softmax(x)-p[i,:].numpy(),[0]*p.size(1),xtol=1e-15,gtol=1e-15,ftol=1e-15) 
+
+      p_inv[i,:] = torch.tensor(res.x)
+    return p_inv
 
 def cross_entropy(q, y):
     '''
@@ -309,3 +319,4 @@ def plot_molecule(molecule, ax, highlight_atoms=[], highlight_atom_colors={}, sh
   if return_idx is not None:
 
     return drawer.GetDrawCoords(return_idx)
+
