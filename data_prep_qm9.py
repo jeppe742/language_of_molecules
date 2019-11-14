@@ -85,7 +85,10 @@ with open('data/qm9.csv','r') as file:
         # convert list of atoms to numpy array for easier computations later
         molecule_list = np.asarray(molecule_list)
 
-        molecules_Adjacency_list.append([molecule_list, Adj, Adj2, constants, smiles])
+        charges = [atom.GetFormalCharge() for atom in molecule.GetAtoms()]
+        num_neighbours = Adj2.sum(axis=1)
+    
+        molecules_Adjacency_list.append([molecule_list, Adj, Adj2, constants, smiles, charges, num_neighbours])
         
 print(f"{ions} molecules containing ions")
 print("Splitting data..")

@@ -2,7 +2,7 @@ from utils.dataloader import QM9Dataset, DataLoader
 from layers.transformer import TransformerModel
 from layers.bagofwords import BagOfWordsModel
 from layers.Unigram import UnigramModel
-from layers.octetRule import OctetRuleModel, OctetRule
+from layers.octetRule import OctetRuleModel
 from torch.nn.functional import softmax, cross_entropy
 import torch
 import numpy as np
@@ -17,7 +17,7 @@ def tensor_to_list(tensor):
     return tensor.detach().cpu().numpy().tolist()
 
 def load_model(model_name):
-    params = re.split(r'(?<=\d)_|(?<=True)_|(?<=False)_',model_name)
+    params = re.split(r'(?<=\d)_|(?<=True)_|(?<=False)_|(?<=zinc)_|(?<=qm9)_',model_name)
     name = params[0]
 
     param_dict={'dataset':'zinc'}
@@ -73,22 +73,23 @@ def load_model(model_name):
                                     num_classes=10 if param_dict['dataset']=='zinc' else 5
                                 )
         model.load('saved_models/'+model_name)
-    if (not 'Unigram' in name) or (not 'Octet' in name):
+    if not ('Unigram' in name or 'Octet' in name):
         model.cuda()
     return model, param_dict
 
-def generate_predictions(model_name, model_alias, num_masked_list = [1,5,10,15,20,25,30], num_faked_list=range(0), save_db=False, plot=False, bond_order=True):
+def generate_predictions(model_name, model_alias, num_masked_list = [1,10,20,30,40,50,60,70,80], num_faked_list=range(0), save_db=False, plot=False, bond_order=True):
 
     model, params = load_model(model_name)
     model.eval()
     if save_db: 
-        db = Database(f"data/results_{params['dataset']}.db")
+        db = Database(f"/work1/s180213/results_{params['dataset']}_3.db")
         db.setup()
     #Set seed to make sure the same atoms are masked for each model
     np.random.seed(42)
     for masks in tqdm(num_masked_list):
 
-        test_set = QM9Dataset(data=f"data/{params['dataset']}/adjacency_matrix_test_scaffold.pkl", num_masks=masks, bond_order=bond_order, samples_per_molecule=5)
+        samples_per_molecule = 5 if masks <= 5 else 1
+        test_set = QM9Dataset(data=f"data/{params['dataset']}/adjacency_matrix_test_scaffold.pkl", num_masks=masks, bond_order=bond_order, samples_per_molecule=samples_per_molecule)
         test_dl = DataLoader(
             test_set,
             batch_size=248
@@ -96,106 +97,115 @@ def generate_predictions(model_name, model_alias, num_masked_list = [1,5,10,15,2
 )
 
         for batch_nr, batch in enumerate(test_dl):
-            if (not 'Unigram' in model_alias) or (not 'Octet' in model_alias):
+            if not ('Unigram' in model_alias or 'Octet' in model_alias):
                 batch.cuda()
-                
-            output = model(batch)
-            lengths = batch.lengths
-            targets_batch = batch.targets_num
-            target_masks = batch.target_mask
-            smiles = batch.smiles
+            with torch.no_grad():
+                output = model(batch)
+                lengths = batch.lengths
+                targets_batch = batch.targets_num
+                target_masks = batch.target_mask
+                smiles = batch.smiles
+                charges_batch = batch.charges
+                num_neighbours_batch = batch.num_neighbours
 
-            targets_batch -= 1
+                targets_batch -= 1
 
-            predictions_batch = output['prediction']
-            out_batch = output['out']
-            probabilities_batch = softmax(output['out'],dim=-1)
+                predictions_batch = output['prediction']
+                out_batch = output['out']
+                probabilities_batch = softmax(output['out'],dim=-1)
 
-            if plot:
-                for i in range(batch.batch_size):
-                    if not torch.equal(targets_batch[i,:], predictions_batch[i,target_masks[i,:]]):
-                        #plt.figure()
-                        # for k in range(1,7):
-                        #     plt.subplot(2,3,k)
-                        #     plt.title(f'layer 1 head {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_0'][i,k-1,target_masks[i,:],:])
-                        
-                        # plt.figure()
-                        # for k in range(1,7):
-                        #     plt.subplot(2,3,k)
-                        #     plt.title(f'layer 2 head {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_1'][i,k-1,target_masks[i,:],:])
- 
-                        # plt.figure()
-                        # for k in range(1,7):
-                        #     plt.subplot(2,3,k)
-                        #     plt.title(f'layer 3 head {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_2'][i,k-1,target_masks[i,:],:])
-                        # plt.figure()
-                        # for k in range(1,7):
-                        #     plt.subplot(2,3,k)
-                        #     plt.title(f'layer 4 head {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_3'][i,k-1,target_masks[i,:],:])
-                        # plt.figure()
-                        # for k in range(1,7):
-                        #     plt.subplot(2,3,k)
-                        #     plt.title(f'layer 5 head {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_4'][i,k-1,target_masks[i,:],:])
-                        # plt.figure()
-                        # for k in range(1,7):
-                        #     plt.subplot(2,3,k)
-                        #     plt.title(f'layer 6 head {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_5'][i,k-1,target_masks[i,:],:])
-                        # plt.figure()
-                        # for k in range(1,7):
-                        #     plt.subplot(2,3,k)
-                        #     plt.title(f'layer 7 head {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_6'][i,k-1,target_masks[i,:],:])
-                        # plt.figure()
-                        # for k in range(1,7):
-                        #     plt.subplot(2,3,k)
-                        #     plt.title(f'layer 8 head {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_7'][i,k-1,target_masks[i,:],:])
- 
-                        # plt.figure()
-                        # for k in range(1,9):
-                        #     plt.subplot(2,4,k)
-                        #     plt.title(f'Attention layer {k}')
-                        #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_{k-1}'][i,0,target_masks[i,:],:])
+                if plot:
+
+                    for i in range(batch.batch_size):
+                        if not torch.equal(targets_batch[i,:], predictions_batch[i,target_masks[i,:]]):
+                            #plt.figure()
+                            # for k in range(1,7):
+                            #     plt.subplot(2,3,k)
+                            #     plt.title(f'layer 1 head {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_0'][i,k-1,target_masks[i,:],:])
                             
-                        plot_prediction(smiles[i], batch.atoms[i], targets_batch[i,:], predictions_batch[i,target_masks[i,:]], probabilities_batch[i, target_masks[i,:],:])
+                            # plt.figure()
+                            # for k in range(1,7):
+                            #     plt.subplot(2,3,k)
+                            #     plt.title(f'layer 2 head {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_1'][i,k-1,target_masks[i,:],:])
+    
+                            # plt.figure()
+                            # for k in range(1,7):
+                            #     plt.subplot(2,3,k)
+                            #     plt.title(f'layer 3 head {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_2'][i,k-1,target_masks[i,:],:])
+                            # plt.figure()
+                            # for k in range(1,7):
+                            #     plt.subplot(2,3,k)
+                            #     plt.title(f'layer 4 head {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_3'][i,k-1,target_masks[i,:],:])
+                            # plt.figure()
+                            # for k in range(1,7):
+                            #     plt.subplot(2,3,k)
+                            #     plt.title(f'layer 5 head {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_4'][i,k-1,target_masks[i,:],:])
+                            # plt.figure()
+                            # for k in range(1,7):
+                            #     plt.subplot(2,3,k)
+                            #     plt.title(f'layer 6 head {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_5'][i,k-1,target_masks[i,:],:])
+                            # plt.figure()
+                            # for k in range(1,7):
+                            #     plt.subplot(2,3,k)
+                            #     plt.title(f'layer 7 head {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_6'][i,k-1,target_masks[i,:],:])
+                            # plt.figure()
+                            # for k in range(1,7):
+                            #     plt.subplot(2,3,k)
+                            #     plt.title(f'layer 8 head {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_7'][i,k-1,target_masks[i,:],:])
+    
+                            # plt.figure()
+                            # for k in range(1,9):
+                            #     plt.subplot(2,4,k)
+                            #     plt.title(f'Attention layer {k}')
+                            #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_{k-1}'][i,0,target_masks[i,:],:])
+                                
+                            plot_prediction(smiles[i], batch.atoms[i], targets_batch[i,:], predictions_batch[i,target_masks[i,:]], probabilities_batch[i, target_masks[i,:],:])
 
-            
-            insert_values = []
+                
+                insert_values = []
 
-            for targets, predictions, probabilities, out, target_mask, length, smile,  in zip(targets_batch,
+                for targets, predictions, probabilities, out, target_mask, length, smile,charges, num_neighbours  in zip(targets_batch,
                                                                                              predictions_batch, 
                                                                                              probabilities_batch, 
                                                                                              out_batch,
                                                                                              target_masks, 
                                                                                              lengths, 
-                                                                                             smiles):
+                                                                                             smiles, charges_batch,
+                                                                                             num_neighbours_batch):
                 
-                targets = targets[targets!=-1]
-                out = out[target_mask]
-                losses = cross_entropy(out, targets, reduction='none')
+                    targets = targets[targets!=-1]
+                    out = out[target_mask]
+                    losses = cross_entropy(out, targets, reduction='none')
 
-                targets = tensor_to_list(targets)
-                probabilities = tensor_to_list(probabilities[target_mask])
-                losses = tensor_to_list(losses)
-                predictions = tensor_to_list(predictions[target_mask])
+                    targets = tensor_to_list(targets)
+                    probabilities = tensor_to_list(probabilities[target_mask])
+                    losses = tensor_to_list(losses)
+                    predictions = tensor_to_list(predictions[target_mask])
+                    charges = tensor_to_list(charges[target_mask])
+                    num_neighbours = tensor_to_list(num_neighbours[target_mask])
+                    # indecies = tensor_to_list(target_mask.nonzero()[:,0])
+                    length = length.item()
 
-                
-                length = length.item()
-                for target, prediction, probability, loss in zip(targets, predictions, probabilities, losses):
-                    insert_values += [(length, 
-                                       model_name,
-                                       model_alias,
-                                       masks, 
-                                       prediction, 
-                                       target, 
-                                       loss,
-                                       smile)]
+                    for target, prediction, probability, loss,charge, num_neighbour in zip(targets, predictions, probabilities, losses,charges, num_neighbours):
+                        insert_values += [(length, 
+                                        model_name,
+                                        model_alias,
+                                        masks, 
+                                        prediction, 
+                                        target, 
+                                        loss,
+                                        smile,
+                                        charge,
+                                        num_neighbour
+                                        )]
             if save_db:
                 db.stage_results(insert_values)
         if save_db:
@@ -203,17 +213,14 @@ def generate_predictions(model_name, model_alias, num_masked_list = [1,5,10,15,2
 
 
 if __name__ == "__main__":
-    # 
-    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    
 
-    generate_predictions("OctetRule", model_alias='OctetRule', save_db=True, plot=False)
+
+    # generate_predictions("OctetRule", model_alias='OctetRule', save_db=True, plot=False)
     generate_predictions("Unigram", model_alias="Unigram", save_db=True, plot=False)
 
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=2.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=3.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=2.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=3.pt", "transformer",save_db=True, plot=False, bond_order=False)
     generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=4.pt", "transformer",save_db=True, plot=False, bond_order=False)
     generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=5.pt", "transformer",save_db=True, plot=False, bond_order=False)
     generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=6.pt", "transformer",save_db=True, plot=False, bond_order=False)
@@ -244,7 +251,7 @@ if __name__ == "__main__":
     generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=9.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
     generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=10.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
 
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
     generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=2.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
     generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=3.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
     generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=4.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
