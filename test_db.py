@@ -20,12 +20,12 @@ def load_model(model_name):
     params = re.split(r'(?<=\d)_|(?<=True)_|(?<=False)_|(?<=zinc)_|(?<=qm9)_',model_name)
     name = params[0]
 
-    param_dict={'dataset':'zinc'}
+    param_dict={'dataset':'qm9'}
 
     if 'Unigram' in name:
-        model = UnigramModel()
+        model = UnigramModel(dataset=param_dict['dataset'])
     elif 'OctetRule' in name:
-        model = OctetRuleModel()
+        model = OctetRuleModel(dataset=param_dict['dataset'], k=0 )
 
     if 'BagOfWords' in name:
         for param in params:
@@ -77,12 +77,13 @@ def load_model(model_name):
         model.cuda()
     return model, param_dict
 
-def generate_predictions(model_name, model_alias, num_masked_list = [1,10,20,30,40,50,60,70,80], num_faked_list=range(0), save_db=False, plot=False, bond_order=True):
+def generate_predictions(model_name, model_alias, num_masked_list = [1,5,10,15,20,25,30], num_faked_list=range(0), save_db=False, plot=False, bond_order=True):
 
     model, params = load_model(model_name)
     model.eval()
-    if save_db: 
-        db = Database(f"/work1/s180213/results_{params['dataset']}_3.db")
+    if save_db:
+        db = Database(f"/work1/s180213/results_{params['dataset']}.db")
+        #db = Database(f"data/results_{params['dataset']}.db")
         db.setup()
     #Set seed to make sure the same atoms are masked for each model
     np.random.seed(42)
@@ -123,13 +124,13 @@ def generate_predictions(model_name, model_alias, num_masked_list = [1,10,20,30,
                             #     plt.subplot(2,3,k)
                             #     plt.title(f'layer 1 head {k}')
                             #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_0'][i,k-1,target_masks[i,:],:])
-                            
+
                             # plt.figure()
                             # for k in range(1,7):
                             #     plt.subplot(2,3,k)
                             #     plt.title(f'layer 2 head {k}')
                             #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_1'][i,k-1,target_masks[i,:],:])
-    
+
                             # plt.figure()
                             # for k in range(1,7):
                             #     plt.subplot(2,3,k)
@@ -160,27 +161,27 @@ def generate_predictions(model_name, model_alias, num_masked_list = [1,10,20,30,
                             #     plt.subplot(2,3,k)
                             #     plt.title(f'layer 8 head {k}')
                             #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_7'][i,k-1,target_masks[i,:],:])
-    
+
                             # plt.figure()
                             # for k in range(1,9):
                             #     plt.subplot(2,4,k)
                             #     plt.title(f'Attention layer {k}')
                             #     plot_attention(smiles[i], batch.atoms[i],f'attention {k}',output[f'attention_weights_{k-1}'][i,0,target_masks[i,:],:])
-                                
+
                             plot_prediction(smiles[i], batch.atoms[i], targets_batch[i,:], predictions_batch[i,target_masks[i,:]], probabilities_batch[i, target_masks[i,:],:])
 
-                
+
                 insert_values = []
 
                 for targets, predictions, probabilities, out, target_mask, length, smile,charges, num_neighbours  in zip(targets_batch,
-                                                                                             predictions_batch, 
-                                                                                             probabilities_batch, 
+                                                                                             predictions_batch,
+                                                                                             probabilities_batch,
                                                                                              out_batch,
-                                                                                             target_masks, 
-                                                                                             lengths, 
+                                                                                             target_masks,
+                                                                                             lengths,
                                                                                              smiles, charges_batch,
                                                                                              num_neighbours_batch):
-                
+
                     targets = targets[targets!=-1]
                     out = out[target_mask]
                     losses = cross_entropy(out, targets, reduction='none')
@@ -195,12 +196,12 @@ def generate_predictions(model_name, model_alias, num_masked_list = [1,10,20,30,
                     length = length.item()
 
                     for target, prediction, probability, loss,charge, num_neighbour in zip(targets, predictions, probabilities, losses,charges, num_neighbours):
-                        insert_values += [(length, 
+                        insert_values += [(length,
                                         model_name,
                                         model_alias,
-                                        masks, 
-                                        prediction, 
-                                        target, 
+                                        masks,
+                                        prediction,
+                                        target,
                                         loss,
                                         smile,
                                         charge,
@@ -215,50 +216,49 @@ def generate_predictions(model_name, model_alias, num_masked_list = [1,10,20,30,
 if __name__ == "__main__":
 
 
-    # generate_predictions("OctetRule", model_alias='OctetRule', save_db=True, plot=False)
-    generate_predictions("Unigram", model_alias="Unigram", save_db=True, plot=False)
+    generate_predictions("OctetRule", model_alias='OctetRule', save_db=True, plot=False)
+    # generate_predictions("Unigram", model_alias="Unigram", save_db=True, plot=False)
 
-    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=2.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=3.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=4.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=5.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=6.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=7.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=8.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=9.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=zinc_nr=10.pt", "transformer",save_db=True, plot=False, bond_order=False)
-    
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=2.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=3.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=4.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=5.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=6.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=7.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=8.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=9.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=zinc_nr=10.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_dataset=qm9.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=2.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=3.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=4.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=5.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=6.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=7.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=8.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=9.pt", "transformer",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=False_nr=10.pt", "transformer",save_db=True, plot=False, bond_order=False)
 
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=2.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=3.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=4.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=5.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=6.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=7.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=8.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=9.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
-    generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_dataset=zinc_nr=10.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=2.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=3.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=4.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=5.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=6.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=7.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=8.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=9.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=2_dataset=qm9_nr=10.pt", "Bag-of-neighbors",save_db=True, plot=False, bond_order=False)
 
-    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=2.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=3.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=4.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=5.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=6.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=7.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=8.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=9.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=8_num_heads=6_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_dataset=zinc_nr=10.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
-    
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=2.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=3.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=4.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=5.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=6.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=7.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=8.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=9.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+    # generate_predictions("BagOfWords_num_masks=1_num_fake=0_num_same=0_num_layers=2_embedding_dim=64_lr=0.001_epsilon_greedy=0.2_bow_type=1_nr=10.pt", "Bag-of-atoms",save_db=True, plot=False, bond_order=False)
+
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=2.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=3.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=4.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=5.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=6.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=7.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=8.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=9.pt", "transformer bond",save_db=True, plot=False, bond_order=True)
+    # generate_predictions("Transformer_num_masks=1_num_fake=0_num_same=0_num_layers=4_num_heads=3_embedding_dim=64_dropout=0.0_lr=0.001_edge_encoding=1_epsilon_greedy=0.2_gamma=1_bond_order=True_nr=10.pt", "transformer bond",save_db=True, plot=False, bond_order=True)

@@ -43,7 +43,7 @@ class BagOfWordsModel(BaseNetwork):
                  num_embeddings=12,
                  embedding_dim=64,
                  num_layers=1,
-                 num_classes=7,
+                 num_classes=5,
                  name=None,
                  BagOfWordsType=BagOfWordsType.ATOMS,
                  use_cuda=False):
@@ -77,6 +77,58 @@ class BagOfWordsModel(BaseNetwork):
 
         for bow_layer in self.bow_layers:
             x = bow_layer(x, mask, adj)
+
+        out['out'] = x = self.l_out(x)
+
+        out['prediction'] = torch.argmax(self.softmax(x), dim=-1)
+
+        return out
+
+
+
+class SimpleBagOfWordsModel(BaseNetwork):
+    def __init__(self,
+                 num_embeddings=12,
+                 embedding_dim=64,
+                 num_layers=1,
+                 num_classes=5,
+                 name=None,
+                 BagOfWordsType=BagOfWordsType.ATOMS,
+                 use_cuda=False):
+
+        super(SimpleBagOfWordsModel, self).__init__(name=name, use_cuda=use_cuda)
+
+        self.embedding_dim = embedding_dim
+        self.embeddings = Embedding(num_embeddings, embedding_dim)
+        self.softmax = Softmax(dim=-1)
+
+        self.l_out = Linear(in_features=embedding_dim, out_features=num_classes)
+
+        self.bow_layer = BagOfWordsLayer(embedding_dim=embedding_dim, BagOfWordsType=BagOfWordsType)
+        
+        self.fnn_layers = ModuleList(
+            [Linear(embedding_dim, embedding_dim) for _ in range(num_layers)]
+        )
+
+    def forward(self, batch):
+        out = {}
+
+        atoms = batch.atoms_num
+        lengths = batch.lengths
+
+        target_mask = batch.target_mask
+        adj = batch.adj
+
+        # create mask
+        mask = length_to_mask(lengths, dtype=torch.bool)  # [batch_size, molecule_size]
+
+        # get embeddings
+        x = self.embeddings(atoms)  # [batch_size, molecule_size, embedding_dim]
+
+        x = self.bow_layer(x, mask, adj)
+
+        for fnn_layer in self.fnn_layers:
+            x = fnn_layer(x)
 
         out['out'] = x = self.l_out(x)
 
