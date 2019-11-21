@@ -23,7 +23,7 @@ parser.add_argument('--name_postfix', default='', type=str)
 parser.add_argument('--use_cuda', default=True, type=bool)
 parser.add_argument('--debug', default=False, type=bool)
 parser.add_argument('--scaffold', default=False, type=bool)
-parser.add_argument('--model',choices=['BoN','BoA','Transformer','SimpleBoN'], default='Transformer')
+parser.add_argument('--model',choices=['BoN','BoA','Transformer','SimpleBoN', 'SimpleBoA'], default='Transformer')
 parser.add_argument('--gamma',default=1, type=float)
 parser.add_argument('--bond_order', default=False, type=bool)
 parser.add_argument('--dataset', default='qm9', choices=['qm9','zinc'])
@@ -149,6 +149,27 @@ elif args.model == 'SimpleBoN':
                                             f"_lr={args.lr}"
                                             f"_epsilon_greedy={args.epsilon_greedy}"
                                             f"_bow_type={BagOfWordsType.NEIGHBOURS}"
+                                            f"_dataset={args.dataset}"
+                                            f"{args.name_postfix}"
+                                        )
+                        )
+
+elif args.model == 'SimpleBoA':
+    model = SimpleBagOfWordsModel(num_layers=args.num_layers,
+                                        embedding_dim=args.embedding_dim,
+                                        BagOfWordsType=BagOfWordsType.ATOMS,
+                                        num_classes=5 if args.dataset=='qm9' else 10,
+                                        use_cuda=args.use_cuda,
+                                        name=(
+                                            "SimpleBagOfAtoms"
+                                            f"_num_masks={args.num_masks}"
+                                            f"_num_fake={args.num_fake}"
+                                            f"_num_same={args.num_same}"
+                                            f"_num_layers={args.num_layers}"
+                                            f"_embedding_dim={args.embedding_dim}"
+                                            f"_lr={args.lr}"
+                                            f"_epsilon_greedy={args.epsilon_greedy}"
+                                            f"_bow_type={BagOfWordsType.ATOMS}"
                                             f"_dataset={args.dataset}"
                                             f"{args.name_postfix}"
                                         )

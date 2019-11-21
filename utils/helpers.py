@@ -235,10 +235,10 @@ def plot_prediction(smiles, atoms, targets, predictions, probabilities):
 
   #replace the masks with the predictions
   for i, target,prediction in zip(masked_idx,targets,predictions):
-    #if target==prediction:
-    masked_color[i] = (0,1,0)
-    #else:
-    #  masked_color[i] = (1,0.3,0)
+    if target==prediction:
+      masked_color[i] = (0,1,0)
+    else:
+      masked_color[i] = (1,0.3,0)
   
   ax=plt.subplot()
   #fig.add_subplot(1,3,1)
