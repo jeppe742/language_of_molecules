@@ -7,6 +7,7 @@ import torch
 class EDGE_ENCODING_TYPE:
     GRAPH = 0
     RELATIVE_POSITION = 1
+    GRAPH_RELATIVE =2
 
 
 class MultiHeadAttention(Module):
@@ -58,7 +59,7 @@ class MultiHeadAttention(Module):
 
         attention = torch.matmul(query, key)/np.sqrt(self.hidden_dim)  # [batch_size, num_heads,  seq_len, seq_len]
 
-        if self.edge_encoding == EDGE_ENCODING_TYPE.RELATIVE_POSITION:
+        if self.edge_encoding == EDGE_ENCODING_TYPE.RELATIVE_POSITION or self.edge_encoding==EDGE_ENCODING_TYPE.GRAPH_RELATIVE:
             a_k = edges_embedding[0](adj.long())  # [batch_size, seq_len, seq_len, hidden_dim]
             a_k = a_k.permute(0, 1, 3, 2)  # [batch_size, seq_len, hidden_dim, seq_len]
             query_tmp = query.permute(0, 2, 1, 3)  # [batch_size, seq_len, num_heads, hidden_dim]
@@ -74,14 +75,15 @@ class MultiHeadAttention(Module):
         # Mask out padding in attention
         attention.masked_fill_(mask, - float('inf'))
 
-        if self.edge_encoding == EDGE_ENCODING_TYPE.GRAPH:
+        if self.edge_encoding == EDGE_ENCODING_TYPE.GRAPH or self.edge_encoding==EDGE_ENCODING_TYPE.GRAPH_RELATIVE:
             adj = adj.unsqueeze(3).permute(0, 3, 1, 2)  # [batch_size, 1, seq_len, seq_len]
             # Mask out all but the connected atoms
             attention.masked_fill_((1-adj).to(torch.bool), -float('inf'))
+            adj = adj.squeeze(1)
 
         # Calculate normalized attention weights
         attention_weights = softmax(attention, dim=-1)  # [batch_size, num_heads, seq_len, seq_len]
-        if self.edge_encoding == EDGE_ENCODING_TYPE.GRAPH:
+        if self.edge_encoding == EDGE_ENCODING_TYPE.GRAPH or self.edge_encoding==EDGE_ENCODING_TYPE.GRAPH_RELATIVE:
             # Some of the padded atoms have 0 neighbours, so their attentions is NaN, which we just replace with 0
             attention_weights = torch.where(attention_weights != attention_weights, torch.tensor(0., device=key.device), attention_weights)
 
@@ -90,7 +92,7 @@ class MultiHeadAttention(Module):
         # Weighted sum of input
         context = torch.matmul(attention_weights, value)  # [batch_size, num_heads, seq_len, hidden_dim]
 
-        if self.edge_encoding == EDGE_ENCODING_TYPE.RELATIVE_POSITION:
+        if self.edge_encoding == EDGE_ENCODING_TYPE.RELATIVE_POSITION or self.edge_encoding==EDGE_ENCODING_TYPE.GRAPH_RELATIVE:
             a_v = edges_embedding[1](adj.long())  # [batch_size, seq_len, seq_len, hidden_dim]
             attention_weights_tmp = attention_weights.permute(0, 2, 1, 3)  # [batch_Size, seq_len, num_heads, seq_len]
             context_v = torch.matmul(attention_weights_tmp, a_v)  # [batch_size, seq_len, num_heads, hidden_dim]
