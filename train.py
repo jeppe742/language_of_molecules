@@ -7,14 +7,14 @@ from layers.bagofwords import BagOfWordsModel, SimpleBagOfWordsModel, BagOfWords
 import wandb
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--num_layers', default=2, type=int)
+parser.add_argument('--num_layers', default=4, type=int)
 parser.add_argument('--num_heads', default=3, type=int)
 parser.add_argument('--embedding_dim', default=64, type=int)
 parser.add_argument('--dropout', default=0.0, type=float)
 parser.add_argument('--lr', default=0.001, type=float)
-parser.add_argument('--num_epochs',  default=10, type=int)
+parser.add_argument('--num_epochs',  default=100, type=int)
 parser.add_argument('--batch_size', default=248, type=int)
-parser.add_argument('--edge_encoding', default=1, type=int)
+parser.add_argument('--edge_encoding', default=2, type=int)
 parser.add_argument('--epsilon_greedy', default=0.2, type=float)
 parser.add_argument('--num_masks', default=1, type=int)
 parser.add_argument('--num_fake', default=0, type=int)
@@ -22,11 +22,11 @@ parser.add_argument('--num_same', default=0, type=int)
 parser.add_argument('--name_postfix', default='', type=str)
 parser.add_argument('--use_cuda', default=True, type=bool)
 parser.add_argument('--debug', default=False, type=bool)
-parser.add_argument('--scaffold', default=False, type=bool)
+parser.add_argument('--scaffold', default=True, type=bool)
 parser.add_argument('--model',choices=['BoN','BoA','Transformer','SimpleBoN', 'SimpleBoA'], default='Transformer')
 parser.add_argument('--gamma',default=1, type=float)
 parser.add_argument('--bond_order', default=False, type=bool)
-parser.add_argument('--dataset', default='qm9', choices=['qm9','zinc'])
+parser.add_argument('--dataset', default='zinc', choices=['qm9','zinc'])
 args = parser.parse_args()
 
 
@@ -75,7 +75,7 @@ if args.model =='Transformer':
                                         edge_encoding=args.edge_encoding,
                                         use_cuda=args.use_cuda,
                                         name=(
-                                            "Transformer"
+                                            "Transformer2"
                                             f"_num_masks={args.num_masks}"
                                             f"_num_fake={args.num_fake}"
                                             f"_num_same={args.num_same}"
@@ -140,7 +140,7 @@ elif args.model == 'SimpleBoN':
                                         num_classes=5 if args.dataset=='qm9' else 10,
                                         use_cuda=args.use_cuda,
                                         name=(
-                                            "SimpleBagOfWords"
+                                            "SimpleBagOfNeighbours2"
                                             f"_num_masks={args.num_masks}"
                                             f"_num_fake={args.num_fake}"
                                             f"_num_same={args.num_same}"
@@ -161,7 +161,7 @@ elif args.model == 'SimpleBoA':
                                         num_classes=5 if args.dataset=='qm9' else 10,
                                         use_cuda=args.use_cuda,
                                         name=(
-                                            "SimpleBagOfAtoms"
+                                            "SimpleBagOfAtoms2"
                                             f"_num_masks={args.num_masks}"
                                             f"_num_fake={args.num_fake}"
                                             f"_num_same={args.num_same}"
@@ -179,7 +179,7 @@ def optimizer_fun(param): return Adam(param, lr=args.lr)
 
 
 if not args.debug:
-    wandb.init(project="language-of-molecules-ions", name=model.name)
+    wandb.init(project="language-of-molecules-graph", name=model.name)
     wandb.config.update(args)
     wandb.watch(model)
 

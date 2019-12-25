@@ -254,10 +254,12 @@ class CorruptionTransform():
 
     def corrupt_fake(self, molecule_sample, picked_atoms):
         old_atoms = molecule_sample.atoms[picked_atoms]
-
+        molecule_sample.atoms = molecule_sample.atoms.astype('<U2')
         # Replace the atoms one at a time, by making sure we don't reuse the same atom as exists
         for idx, old_atom in zip(picked_atoms, old_atoms):
             new_atom = np.random.choice([atom for atom in ATOMS[:-1] if atom != old_atom])
+            if len(new_atom)>1:
+                a=1
             molecule_sample.atoms[idx] = new_atom
 
     def __call__(self, molecule_sample):

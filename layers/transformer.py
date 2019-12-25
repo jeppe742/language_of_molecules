@@ -20,7 +20,7 @@ class TransformerModel(BaseNetwork):
 
         super(TransformerModel, self).__init__(name=name, log=log, use_cuda=use_cuda)
 
-        if edge_encoding == EDGE_ENCODING_TYPE.RELATIVE_POSITION:
+        if edge_encoding == EDGE_ENCODING_TYPE.RELATIVE_POSITION or edge_encoding==EDGE_ENCODING_TYPE.GRAPH_RELATIVE:
             self.edges_embedding = ModuleList([Embedding(5, embedding_dim), Embedding(5, embedding_dim)])
         else:
             self.edges_embedding = None
