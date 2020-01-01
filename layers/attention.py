@@ -78,7 +78,7 @@ class MultiHeadAttention(Module):
         if self.edge_encoding == EDGE_ENCODING_TYPE.GRAPH or self.edge_encoding==EDGE_ENCODING_TYPE.GRAPH_RELATIVE:
             adj = adj.unsqueeze(3).permute(0, 3, 1, 2)  # [batch_size, 1, seq_len, seq_len]
             # Mask out all but the connected atoms
-            attention.masked_fill_((1-adj).to(torch.bool), -float('inf'))
+            attention.masked_fill_((adj == 0).to(torch.bool), -float('inf'))
             adj = adj.squeeze(1)
 
         # Calculate normalized attention weights
